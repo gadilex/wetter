@@ -262,7 +262,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.5 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v3.6 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -421,9 +421,8 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
           <button class="rbtn" onclick="loadRadarData()" title="Radar aktualisieren">↻</button>
           <div class="radar-ts" id="radarTs">–</div>
         </div>
-        <!-- Info: DWD ist immer aktuell -->
         <div style="padding:8px 14px;font-size:10px;color:var(--faint);border-top:1px solid rgba(255,255,255,.05);line-height:1.5">
-          📡 DWD Niederschlagsradar (Deutscher Wetterdienst) · 1km · alle 5 Min. · immer aktuell
+          ℹ️ RainViewer zeigt die letzten ~2h. Zeitbereich verschiebt sich laufend mit der Echtzeit.
         </div>
       </div>
 
@@ -484,7 +483,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
         <div style="font-size:10px;color:var(--faint);margin-top:4px">Quelle: MeteoSwiss / geo.admin.ch (Open Data)</div>
       </div>
 
-      <div class="attr">Radar: DWD (Deutscher Wetterdienst) · CH: MeteoSwiss/geo.admin.ch · Sat: RainViewer · Karte: CartoDB</div>
+      <div class="attr">Radar: RainViewer · CH: MeteoSwiss/geo.admin.ch · Karte: CartoDB</div>
     </div>
 
   </div><!-- /weatherView -->
@@ -1080,73 +1079,71 @@ function initRadar(){
 }
 
 let radarRefreshTimer = null;
-let dwdRadarLayer = null; // DWD WMS Live-Radar-Layer
+let dwdRadarLayer = null; // unused, kept for compat
 
 async function loadRadarData(){
-  // DWD als primäre Radarquelle — staatlich, offen, keine Rate-Limits
-  // WMS: maps.dwd.de/geoserver/dwd/wms — Niederschlagsradar, alle 5 Min. aktualisiert
   try {
-    // Alten DWD-Layer entfernen falls vorhanden
-    if(dwdRadarLayer && radarMap && radarMap.hasLayer(dwdRadarLayer)){
-      radarMap.removeLayer(dwdRadarLayer);
-      dwdRadarLayer = null;
-    }
+    // RainViewer: zuverlässige XYZ-Tiles, CORS-kompatibel, weltweit
+    const cacheBust = Math.floor(Date.now() / 60000); // ändert jede Minute
+    const res = await fetch(
+      `https://api.rainviewer.com/public/weather-maps.json?_cb=${cacheBust}`,
+      { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }
+    );
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
 
-    // Cache-Buster: zwingt den Browser jeden Request wirklich abzuschicken
-    const ts = Date.now();
+    // Alte Layer entfernen
+    radarLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
+    satLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
 
-    // DWD Niederschlagsradar WMS (RADOLAN/RADKLIM Komposit, 1km, alle 5min)
-    dwdRadarLayer = L.tileLayer.wms('https://maps.dwd.de/geoserver/dwd/wms', {
-      layers: 'dwd:Niederschlagsradar',
-      format: 'image/png',
-      transparent: true,
-      version: '1.3.0',
-      opacity: 0.85,
-      zIndex: 10,
-      // Cache-Buster als TIME-Parameter — DWD WMS versteht das
-      time: new Date(Math.floor(ts/300000)*300000).toISOString(),
-      attribution: '© DWD'
-    });
-    dwdRadarLayer.addTo(radarMap);
+    const rAll = [...(data.radar?.past||[]), ...(data.radar?.nowcast||[])];
+    radarFrames = rAll.slice(-14);
 
-    // Radarframes = [jetzt] für DWD (kein Frame-Array, nur aktueller Zeitpunkt)
-    radarFrames = [{time: Math.floor(ts/1000), path: 'dwd'}];
-    radarLayers = [dwdRadarLayer];
-    radarIdx = 0;
+    radarLayers = radarFrames.map(f =>
+      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/4/1_1.png`, {
+        tileSize: 256, opacity: 0.75, maxZoom: 14, zIndex: 10,
+        crossOrigin: true
+      })
+    );
 
-    const nowTime = new Date().toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
-    document.getElementById('radarSub').textContent = `DWD Live · Stand ${nowTime}`;
-    document.getElementById('radarTs').textContent = `${nowTime} (DWD aktuell)`;
+    satFrames = data.satellite?.infrared || [];
+    satLayers = satFrames.map(f =>
+      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`, {
+        tileSize: 256, opacity: 0.85, maxZoom: 8, zIndex: 10,
+        crossOrigin: true
+      })
+    );
+
+    radarIdx = radarLayers.length - 1;
+    satIdx   = satLayers.length - 1;
+
+    if(currentMapLayer === 'radar') showRadarFrame(radarIdx);
+    if(currentMapLayer === 'satellite' && satLayers.length) showSatFrame(satIdx);
     updateRadarSourceBadge();
 
-    // Satellite: weiterhin RainViewer versuchen (nur für Sat-Tab)
-    try {
-      const cacheBust = Math.floor(ts/60000);
-      const res = await fetch(
-        `https://api.rainviewer.com/public/weather-maps.json?_=${cacheBust}`,
-        { cache: 'no-store' }
-      );
-      if(res.ok){
-        const data = await res.json();
-        satFrames = data.satellite?.infrared || [];
-        satLayers = satFrames.map(f=>
-          L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
-            {tileSize:256, opacity:.85, maxZoom:8, zIndex:10}));
-        satIdx = satLayers.length - 1;
-      }
-    } catch(e){ console.warn('RainViewer Satellit nicht verfügbar:', e.message); }
+    // Zeitanzeige: Bereich + Alter des neuesten Frames
+    const first = radarFrames[0];
+    const last  = radarFrames[radarIdx];
+    if(first && last) {
+      const t0  = new Date(first.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+      const t1  = new Date(last.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+      const age = Math.round((Date.now()/1000 - last.time) / 60);
+      document.getElementById('radarSub').textContent =
+        `${t0}–${t1} · ${age <= 15 ? age+' Min. alt' : '⚠ '+age+' Min. alt'}`;
+    }
 
   } catch(e) {
-    console.warn('DWD Radar Fehler:', e);
-    document.getElementById('radarSub').textContent = 'DWD: Fehler — ↻ nochmal';
+    console.warn('Radar Fehler:', e.message);
+    document.getElementById('radarSub').textContent = 'Fehler – ↻ nochmal tippen';
+    // MeteoSwiss WMS als Fallback für CH
+    if(isInSwitzerland(loc.lat||0, loc.lon||0)) addMeteoSwissRadar();
   }
 }
 
 function startRadarAutoRefresh(){
   if(radarRefreshTimer) clearInterval(radarRefreshTimer);
-  // DWD WMS alle 5 Min. neu laden (neue Tiles anfordern)
   radarRefreshTimer = setInterval(()=>{
-    if(currentMapLayer==='radar') loadRadarData();
+    loadRadarData(); // neue Frames holen, springt automatisch zum neuesten
   }, 5 * 60 * 1000);
 }
 
@@ -1188,13 +1185,8 @@ function updateRadarSourceBadge() {
   const inCH = isInSwitzerland(loc.lat||0, loc.lon||0);
   const badge = document.getElementById('radarSourceBadge');
   if(badge) {
-    if(inCH) {
-      badge.textContent = '🇨🇭 MeteoSwiss + DWD';
-      badge.style.color = '#4dff91';
-    } else {
-      badge.textContent = 'DWD Open Data';
-      badge.style.color = 'var(--faint)';
-    }
+    badge.textContent = inCH ? '🇨🇭 MeteoSwiss + RainViewer' : 'RainViewer';
+    badge.style.color = inCH ? '#4dff91' : 'var(--faint)';
   }
 }
 
@@ -1204,16 +1196,26 @@ function clearWeatherLayers(){
 }
 
 function showRadarFrame(idx){
-  // DWD WMS ist immer live — kein Frame-Switching nötig
-  // Layer ist bereits auf der Karte, nur MeteoSwiss-Overlay anpassen
-  if(isInSwitzerland(loc.lat||0, loc.lon||0)) {
-    addMeteoSwissRadar();
-  } else {
-    removeMeteoSwissRadar();
+  radarLayers.forEach((l,i)=>{
+    try {
+      if(i===idx){ if(!radarMap.hasLayer(l)) l.addTo(radarMap); }
+      else        { if(radarMap.hasLayer(l))  radarMap.removeLayer(l); }
+    } catch(e){}
+  });
+  satLayers.forEach(l=>{ try{ if(radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
+  if(tempLayer){ try{ radarMap.removeLayer(tempLayer); tempLayer=null; }catch(e){} }
+
+  if(isInSwitzerland(loc.lat||0, loc.lon||0)) addMeteoSwissRadar();
+  else removeMeteoSwissRadar();
+
+  if(radarFrames[idx]){
+    const dt  = new Date(radarFrames[idx].time*1000);
+    const age = Math.round((Date.now()/1000 - radarFrames[idx].time)/60);
+    const isNowcast = radarFrames[idx].path?.includes('nowcast');
+    document.getElementById('radarTs').textContent = isNowcast
+      ? dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) + ' (Prognose)'
+      : dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) + ` (${age} Min. alt)`;
   }
-  // Timestamp aktualisieren
-  const nowTime = new Date().toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('radarTs').textContent = `${nowTime} (DWD Live)`;
 }
 
 function showSatFrame(idx){
@@ -1260,30 +1262,20 @@ function setMapLayer(layer){
 
   if(layer==='radar'){
     document.getElementById('btnRadar').classList.add('active');
-    satLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
-    if(tempLayer){radarMap&&radarMap.removeLayer(tempLayer);tempLayer=null}
-    // DWD Layer ist immer live — einfach sicherstellen dass er auf der Karte ist
-    if(dwdRadarLayer && radarMap && !radarMap.hasLayer(dwdRadarLayer)){
-      dwdRadarLayer.addTo(radarMap);
-    } else if(!dwdRadarLayer){
-      loadRadarData();
-    }
-    showRadarFrame(radarIdx);
-    if(chInfo) chInfo.style.display = inCH ? 'block' : 'none';
-    // Play/Prev/Next deaktivieren bei DWD (live, kein Frame-Array)
-    document.getElementById('playBtn').disabled = true;
-    document.getElementById('playBtn').style.opacity = '0.4';
-    document.getElementById('playBtn').title = 'DWD ist immer live – keine Animation';
-  }else if(layer==='satellite'){
-    document.getElementById('btnSat').classList.add('active');
-    // Play wieder aktivieren für Satellit
     document.getElementById('playBtn').disabled = false;
     document.getElementById('playBtn').style.opacity = '1';
     document.getElementById('playBtn').title = '';
-    // DWD Radar verstecken
-    if(dwdRadarLayer && radarMap && radarMap.hasLayer(dwdRadarLayer)){
-      radarMap.removeLayer(dwdRadarLayer);
-    }
+    satLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
+    if(tempLayer){ try{ radarMap&&radarMap.removeLayer(tempLayer); tempLayer=null; }catch(e){} }
+    if(radarLayers.length) showRadarFrame(radarIdx);
+    else loadRadarData();
+    if(chInfo) chInfo.style.display = inCH ? 'block' : 'none';
+  }else if(layer==='satellite'){
+    document.getElementById('btnSat').classList.add('active');
+    document.getElementById('playBtn').disabled = false;
+    document.getElementById('playBtn').style.opacity = '1';
+    document.getElementById('playBtn').title = '';
+    radarLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
     removeMeteoSwissRadar();
     if(chInfo) chInfo.style.display='none';
     if(satLayers.length) showSatFrame(satIdx);
