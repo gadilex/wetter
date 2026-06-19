@@ -583,23 +583,63 @@ async function loadForCoords(lat,lon,isGPS=false){
     sub=`${lat.toFixed(3)}, ${lon.toFixed(3)} · ${a.country||''}`;
   }catch{}
 
-  // Fetch weather
-  const params=new URLSearchParams({
-    latitude:lat,longitude:lon,
+  // Fetch weather — MeteoSwiss ICON-CH1/CH2 für Schweizer Standorte
+  const inCH = lat>=45.8&&lat<=47.9&&lon>=5.9&&lon<=10.6;
+
+  // Gemeinsame Parameter
+  const commonParams = {
+    latitude:lat, longitude:lon,
     current:'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,visibility,dew_point_2m,uv_index,precipitation,snowfall,cloud_cover,is_day',
     hourly:'temperature_2m,weather_code,precipitation_probability,precipitation,rain,snowfall,snow_depth,wind_speed_10m,cloud_cover,cape',
     daily:'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,rain_sum,snowfall_sum,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,snow_depth_max',
-    timezone:'auto',forecast_days:8
-  });
-  const wr=await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-  if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
-  wx=await wr.json();
+    timezone:'auto', forecast_days:8
+  };
+
+  let wxData;
+  if(inCH){
+    // Schweiz: ICON-CH1 (1km, 33h) + ICON-CH2 (2.1km, 5 Tage) via Open-Meteo MeteoSwiss API
+    // Wir rufen beide Modelle parallel ab und kombinieren sie
+    const [r1, r2] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/meteoswiss?${new URLSearchParams({...commonParams, models:'icon_ch1', forecast_days:2})}`),
+      fetch(`https://api.open-meteo.com/v1/meteoswiss?${new URLSearchParams({...commonParams, models:'icon_ch2', forecast_days:8})}`)
+    ]);
+    if(!r1.ok || !r2.ok) throw new Error('MeteoSwiss-Dienst nicht erreichbar.');
+    const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+
+    // CH1 für aktuell + erste 33h, CH2 für Tagesvorhersage und Rest
+    wxData = d2; // Basis: CH2 (5 Tage)
+    wxData.current = d1.current; // Aktuell: CH1 (präziser)
+    // Stundenwerte: CH1 für die ersten 33h, danach CH2
+    const ch1Hours = d1.hourly.time.length;
+    Object.keys(d1.hourly).forEach(key=>{
+      if(d2.hourly[key]){
+        wxData.hourly[key] = [
+          ...d1.hourly[key],           // CH1: erste 33h (1km)
+          ...d2.hourly[key].slice(ch1Hours)  // CH2: Rest
+        ];
+      }
+    });
+    wxData.hourly.time = [
+      ...d1.hourly.time,
+      ...d2.hourly.time.slice(ch1Hours)
+    ];
+    wxData._model = 'MeteoSwiss ICON-CH1 (1km) + ICON-CH2 (2.1km)';
+  } else {
+    // Welt: best_match (wählt automatisch bestes verfügbares Modell)
+    const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams(commonParams)}`);
+    if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
+    wxData = await wr.json();
+    wxData._model = 'Open-Meteo best_match';
+  }
+  wx = wxData;
 
   const elev=Math.round(wx.elevation||0);
-  loc={lat,lon,elev,country,isAlpine:elev>800,isHighAlpine:elev>1500};
+  loc={lat,lon,elev,country,isAlpine:elev>800,isHighAlpine:elev>1500,inCH};
 
   document.getElementById('locName').textContent=name+(loc.isHighAlpine?' 🏔':loc.isAlpine?' ⛰':'')+(isGPS?' 📍':'');
-  document.getElementById('locSub').textContent=`${sub}${elev>0?' · '+elev+'m ü.M.':''}`;
+  document.getElementById('locSub').textContent=
+    `${sub}${elev>0?' · '+elev+'m ü.M.':''}` +
+    (inCH?' · 🇨🇭 ICON-CH1/2':' · Open-Meteo');
 
   nowIdx=Math.max(0,wx.hourly.time.findIndex(t=>new Date(t+'Z')>=new Date()));
   renderNow(); renderWeek(); renderPrecipForecast();
@@ -814,6 +854,15 @@ function renderNow(){
         <div class="chip-val">${loc.elev} m</div>
         <div class="chip-lbl">Höhenlage</div>
         <div class="chip-sub">Hochalpine Bedingungen möglich</div>
+      </div>`;
+  }
+  if(loc.inCH){
+    chipsHtml+=`
+      <div class="chip wide" style="border-color:rgba(77,184,255,.25);background:rgba(77,184,255,.06)">
+        <div class="chip-icon">🇨🇭</div>
+        <div class="chip-val" style="font-size:13px;line-height:1.3">ICON-CH1 · ICON-CH2</div>
+        <div class="chip-lbl">MeteoSwiss Modell aktiv</div>
+        <div class="chip-sub">1 km / 2.1 km Auflösung · alle 3–6h aktualisiert · via Open-Meteo</div>
       </div>`;
   }
   document.getElementById('chipsGrid').innerHTML=chipsHtml;
@@ -1031,6 +1080,7 @@ let msRadarLayer = null;
 let msRadarTimer = null;
 
 function isInSwitzerland(lat, lon) {
+  if(loc && loc.inCH !== undefined) return loc.inCH;
   return lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6;
 }
 
