@@ -393,7 +393,10 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
         <div class="radar-hdr">
           <div class="radar-dot"></div>
           <div class="radar-title">Live Karte</div>
-          <div class="radar-sub" id="radarSub">wird geladen…</div>
+          <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+            <div class="radar-sub" id="radarSub">wird geladen…</div>
+            <div id="radarSourceBadge" style="font-size:10px;color:var(--faint);font-family:monospace"></div>
+          </div>
         </div>
 
         <!-- LAYER BUTTONS -->
@@ -445,7 +448,13 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
         <div style="font-size:10px;color:var(--faint);margin-top:4px">Quelle: Blitzortung.org · Wird alle 2 Min. aktualisiert</div>
       </div>
 
-      <div class="attr">Radar: RainViewer · Blitze: Blitzortung.org · Karte: CartoDB</div>
+      <div id="chRadarInfo" class="card" style="margin:0 14px 12px;padding:13px 16px;display:none">
+        <div style="font-size:12px;font-weight:500;margin-bottom:5px">🇨🇭 MeteoSwiss Hochauflösungs-Radar</div>
+        <div style="font-size:11px;color:var(--muted)">Standort in der Schweiz erkannt — MeteoSwiss CombiPrecip wird zusätzlich zum RainViewer-Radar eingeblendet. Auflösung: 1 km · Aktualisierung: alle 5 Min.</div>
+        <div style="font-size:10px;color:var(--faint);margin-top:4px">Quelle: MeteoSwiss / geo.admin.ch (Open Data)</div>
+      </div>
+
+      <div class="attr">Radar: RainViewer · CH: MeteoSwiss/geo.admin.ch · Blitze: Blitzortung.org · Karte: CartoDB</div>
     </div>
 
   </div><!-- /weatherView -->
@@ -873,30 +882,73 @@ function initRadar(){
 
 async function loadRadarData(){
   try{
-    const res=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    const data=await res.json();
-    // Radar
-    const rAll=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
-    radarFrames=rAll.slice(-14);
-    radarLayers=radarFrames.map(f=>
-      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/4/1_1.png`,
-        {tileSize:256,opacity:.75,maxZoom:14}));
-    // Satellite (infrared)
-    satFrames=data.satellite?.infrared||[];
-    satLayers=satFrames.map(f=>
-      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
-        {tileSize:256,opacity:.85,maxZoom:8}));
+    // Always load RainViewer for Europe-wide radar
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(r=>r.json())
+      .then(data=>{
+        const rAll=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
+        radarFrames=rAll.slice(-14);
+        radarLayers=radarFrames.map(f=>
+          L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/4/1_1.png`,
+            {tileSize:256,opacity:.75,maxZoom:14,zIndex:10}));
+        satFrames=data.satellite?.infrared||[];
+        satLayers=satFrames.map(f=>
+          L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
+            {tileSize:256,opacity:.85,maxZoom:8,zIndex:10}));
+        radarIdx=radarLayers.length-1;
+        satIdx=satLayers.length-1;
+        if(currentMapLayer==='radar') showRadarFrame(radarIdx);
+        if(currentMapLayer==='satellite'&&satLayers.length) showSatFrame(satIdx);
+        updateRadarSourceBadge();
+        document.getElementById('radarSub').textContent=`${radarFrames.length} Frames`;
+      }).catch(e=>{ document.getElementById('radarSub').textContent='Fehler beim Laden'; });
+  }catch(e){ document.getElementById('radarSub').textContent='Fehler'; }
+}
 
-    radarIdx=radarLayers.length-1;
-    satIdx=satLayers.length-1;
+// MeteoSwiss WMS radar layer (Switzerland only, 1km resolution, updates every 2.5min)
+let msRadarLayer = null;
+let msRadarTimer = null;
 
-    if(currentMapLayer==='radar') showRadarFrame(radarIdx);
-    if(currentMapLayer==='satellite'&&satLayers.length) showSatFrame(satIdx);
+function isInSwitzerland(lat, lon) {
+  return lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6;
+}
 
-    document.getElementById('radarSub').textContent=`${radarFrames.length} Frames`;
-  }catch(e){
-    document.getElementById('radarSub').textContent='Fehler beim Laden';
-    console.warn('Radar load error:',e);
+function addMeteoSwissRadar() {
+  if(!radarMap) return;
+  // MeteoSwiss WMS via geo.admin.ch — free public service, 1km resolution
+  // Layer: ch.meteoschweiz.radar-niederschlag-combiniert (CombiPrecip)
+  // Updates every 5 min, covers Switzerland + surroundings
+  if(msRadarLayer) { radarMap.removeLayer(msRadarLayer); msRadarLayer=null; }
+  const ts = new Date().toISOString(); // cache-bust
+  msRadarLayer = L.tileLayer.wms('https://wms.geo.admin.ch/', {
+    layers: 'ch.meteoschweiz.radar-niederschlag-combiniert',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    crs: L.CRS.EPSG3857,
+    opacity: 0.8,
+    zIndex: 15,
+    attribution: '© MeteoSwiss'
+  });
+  msRadarLayer.addTo(radarMap);
+}
+
+function removeMeteoSwissRadar() {
+  if(msRadarLayer) { radarMap.removeLayer(msRadarLayer); msRadarLayer=null; }
+  if(msRadarTimer) { clearInterval(msRadarTimer); msRadarTimer=null; }
+}
+
+function updateRadarSourceBadge() {
+  const inCH = isInSwitzerland(loc.lat||0, loc.lon||0);
+  const badge = document.getElementById('radarSourceBadge');
+  if(badge) {
+    if(inCH) {
+      badge.textContent = '🇨🇭 MeteoSwiss + RainViewer';
+      badge.style.color = '#4dff91';
+    } else {
+      badge.textContent = 'RainViewer Europe';
+      badge.style.color = 'var(--faint)';
+    }
   }
 }
 
@@ -912,6 +964,14 @@ function showRadarFrame(idx){
   });
   satLayers.forEach(l=>{if(radarMap.hasLayer(l))radarMap.removeLayer(l)});
   if(tempLayer){radarMap.removeLayer(tempLayer);tempLayer=null}
+
+  // Auto-add MeteoSwiss high-res layer on top when in Switzerland
+  if(isInSwitzerland(loc.lat||0, loc.lon||0)) {
+    addMeteoSwissRadar();
+  } else {
+    removeMeteoSwissRadar();
+  }
+
   if(radarFrames[idx]){
     const dt=new Date(radarFrames[idx].time*1000);
     const isNow=radarFrames[idx].path?.includes('nowcast');
@@ -952,27 +1012,37 @@ function setMapLayer(layer){
     document.getElementById('playBtn').textContent='▶ Play';
     document.getElementById('playBtn').classList.remove('active')}
   currentMapLayer=layer;
-  // Update button styles
   ['radar','sat','temp'].forEach(id=>{
     const btn=document.getElementById('btn'+id.charAt(0).toUpperCase()+id.slice(1));
     if(btn) btn.classList.remove('active','active-warm');
   });
-  // legend visibility
   document.getElementById('legendRadar').style.display=layer==='radar'?'block':'none';
   document.getElementById('legendTemp').style.display=layer==='temp'?'block':'none';
 
+  const inCH = isInSwitzerland(loc.lat||0, loc.lon||0);
+  const chInfo = document.getElementById('chRadarInfo');
+
   if(layer==='radar'){
     document.getElementById('btnRadar').classList.add('active');
+    // Remove sat/temp layers
+    satLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
+    if(tempLayer){radarMap&&radarMap.removeLayer(tempLayer);tempLayer=null}
     if(radarLayers.length) showRadarFrame(radarIdx);
     else loadRadarData();
+    if(chInfo) chInfo.style.display = inCH ? 'block' : 'none';
   }else if(layer==='satellite'){
     document.getElementById('btnSat').classList.add('active');
+    removeMeteoSwissRadar();
+    if(chInfo) chInfo.style.display='none';
     if(satLayers.length) showSatFrame(satIdx);
     else{clearWeatherLayers();document.getElementById('radarTs').textContent='Keine Sat-Daten'}
   }else if(layer==='temp'){
     document.getElementById('btnTemp').classList.add('active-warm');
+    removeMeteoSwissRadar();
+    if(chInfo) chInfo.style.display='none';
     showTempLayer();
   }
+  updateRadarSourceBadge();
 }
 
 function togglePlay(){
