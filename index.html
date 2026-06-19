@@ -258,7 +258,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.0 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v3.1 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -413,6 +413,8 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
           <button class="rbtn" onclick="radarPrev()">◀</button>
           <button class="rbtn" onclick="radarNext()">▶</button>
           <button class="rbtn" id="playBtn" onclick="togglePlay()">▶ Play</button>
+          <button class="rbtn" onclick="radarJumpLatest()" title="Neuester Frame">⏭</button>
+          <button class="rbtn" onclick="loadRadarData()" title="Radar aktualisieren">↻</button>
           <div class="radar-ts" id="radarTs">–</div>
         </div>
       </div>
@@ -1048,14 +1050,20 @@ function initRadar(){
      .addTo(radarMap).bindPopup(document.getElementById('locName').textContent.replace(/ [📍⛰🏔]/g,''));
   }
   loadRadarData();
+  startRadarAutoRefresh();
 }
+
+let radarRefreshTimer = null;
 
 async function loadRadarData(){
   try{
-    // Always load RainViewer for Europe-wide radar
     fetch('https://api.rainviewer.com/public/weather-maps.json')
       .then(r=>r.json())
       .then(data=>{
+        // Remove old layers from map before replacing
+        radarLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
+        satLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
+
         const rAll=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
         radarFrames=rAll.slice(-14);
         radarLayers=radarFrames.map(f=>
@@ -1065,14 +1073,32 @@ async function loadRadarData(){
         satLayers=satFrames.map(f=>
           L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
             {tileSize:256,opacity:.85,maxZoom:8,zIndex:10}));
+
+        // Always jump to latest frame on (re)load
         radarIdx=radarLayers.length-1;
         satIdx=satLayers.length-1;
+
         if(currentMapLayer==='radar') showRadarFrame(radarIdx);
         if(currentMapLayer==='satellite'&&satLayers.length) showSatFrame(satIdx);
         updateRadarSourceBadge();
-        document.getElementById('radarSub').textContent=`${radarFrames.length} Frames`;
-      }).catch(e=>{ document.getElementById('radarSub').textContent='Fehler beim Laden'; });
+
+        const lastTime = radarFrames[radarIdx]
+          ? new Date(radarFrames[radarIdx].time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})
+          : '–';
+        document.getElementById('radarSub').textContent=
+          `${radarFrames.length} Frames · Stand ${lastTime}`;
+      }).catch(()=>{ document.getElementById('radarSub').textContent='Fehler beim Laden'; });
   }catch(e){ document.getElementById('radarSub').textContent='Fehler'; }
+}
+
+function startRadarAutoRefresh(){
+  // Refresh radar data every 5 minutes to get new frames
+  if(radarRefreshTimer) clearInterval(radarRefreshTimer);
+  radarRefreshTimer = setInterval(()=>{
+    if(!radarPlaying){ // only auto-refresh when not playing animation
+      loadRadarData();
+    }
+  }, 5 * 60 * 1000);
 }
 
 // MeteoSwiss WMS radar layer (Switzerland only, 1km resolution, updates every 2.5min)
@@ -1241,6 +1267,14 @@ function radarPrev(){
 function radarNext(){
   if(currentMapLayer==='radar'){radarIdx=(radarIdx+1)%radarLayers.length;showRadarFrame(radarIdx)}
   else if(currentMapLayer==='satellite'){satIdx=(satIdx+1)%satLayers.length;showSatFrame(satIdx)}
+}
+function radarJumpLatest(){
+  // Stop animation and jump to newest frame
+  if(radarPlaying){ clearInterval(radarTimer); radarPlaying=false;
+    document.getElementById('playBtn').textContent='▶ Play';
+    document.getElementById('playBtn').classList.remove('active'); }
+  if(currentMapLayer==='radar'){ radarIdx=radarLayers.length-1; showRadarFrame(radarIdx); }
+  else if(currentMapLayer==='satellite'){ satIdx=satLayers.length-1; showSatFrame(satIdx); }
 }
 
 // ── LIGHTNING ──────────────────────────────────────────────────────────────
