@@ -417,6 +417,27 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
         </div>
       </div>
 
+      <!-- NIEDERSCHLAG PROGNOSE CHART -->
+      <div class="sec-label" style="margin-top:4px">Niederschlagsprognose (nächste 24h)</div>
+      <div class="card" style="margin:0 14px 12px;padding:16px 14px 12px" id="precipForecastCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:500">🌧 Regen · ❄️ Schnee · % Wahrscheinlichkeit</div>
+          <div style="font-size:10px;color:var(--faint);font-family:monospace" id="precipForecastNext">–</div>
+        </div>
+        <!-- Probability bars -->
+        <div style="display:flex;gap:2px;align-items:flex-end;height:60px;margin-bottom:6px" id="precipForecastBars"></div>
+        <!-- Hour labels -->
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px" id="precipForecastLabels"></div>
+        <!-- mm line chart -->
+        <svg id="precipMmSpark" viewBox="0 0 300 32" style="width:100%;height:32px;display:block;margin-bottom:4px"></svg>
+        <div style="display:flex;gap:14px;font-size:10px;color:var(--faint)">
+          <span style="color:var(--accent)">— mm/h Regen</span>
+          <span style="color:var(--snow)">— mm/h Schnee</span>
+        </div>
+        <!-- Next rain summary -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="nextRainSummary"></div>
+      </div>
+
       <!-- LEGEND RADAR -->
       <div id="legendRadar" class="card" style="margin:0 14px 12px;padding:14px 16px">
         <div style="font-size:12px;font-weight:500;margin-bottom:8px">Radar-Intensität</div>
@@ -427,7 +448,6 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
           <div class="legend-seg" style="background:#00c800"></div>
           <div class="legend-seg" style="background:#ffff00"></div>
           <div class="legend-seg" style="background:#ff8000"></div>
-          <div class="legend-seg" style="background:#ff0000"></div>
           <div class="legend-seg" style="background:#800000"></div>
         </div>
         <div class="legend-labels"><span>Leicht</span><span>Mäßig</span><span>Stark</span><span>Extrem</span></div>
@@ -582,7 +602,7 @@ async function loadForCoords(lat,lon,isGPS=false){
   document.getElementById('locSub').textContent=`${sub}${elev>0?' · '+elev+'m ü.M.':''}`;
 
   nowIdx=Math.max(0,wx.hourly.time.findIndex(t=>new Date(t+'Z')>=new Date()));
-  renderNow(); renderWeek();
+  renderNow(); renderWeek(); renderPrecipForecast();
   showPhase('weather');
 
   // Update radar map center if already open
@@ -857,6 +877,107 @@ function renderWeek(){
         </div>`;
     }
   } else snowSec.style.display='none';
+}
+
+// ── Render PRECIP FORECAST (shown in Radar tab) ────────────────────────────
+function renderPrecipForecast(){
+  if(!wx) return;
+  const h = wx.hourly;
+  const hrs = 24;
+
+  // Collect next 24h data
+  const times   = Array.from({length:hrs},(_,i)=>h.time[nowIdx+i]).filter(Boolean);
+  const prob     = Array.from({length:hrs},(_,i)=>h.precipitation_probability[nowIdx+i]||0);
+  const rain     = Array.from({length:hrs},(_,i)=>h.rain?.[nowIdx+i]||0);
+  const snow     = Array.from({length:hrs},(_,i)=>h.snowfall?.[nowIdx+i]||0);
+  const precip   = Array.from({length:hrs},(_,i)=>h.precipitation?.[nowIdx+i]||0);
+
+  // Bars (probability)
+  const bars  = document.getElementById('precipForecastBars');
+  const lbls  = document.getElementById('precipForecastLabels');
+  if(!bars) return;
+  bars.innerHTML=''; lbls.innerHTML='';
+
+  times.forEach((t,i)=>{
+    const p   = prob[i];
+    const r   = rain[i];
+    const s   = snow[i];
+    const ht  = Math.max((p/100)*56, 2);
+    const col = s>0
+      ? `linear-gradient(180deg,var(--snow),#88aaff)`
+      : r>0
+        ? `linear-gradient(180deg,var(--accent),var(--rain))`
+        : `rgba(255,255,255,.12)`;
+    const dt  = new Date(t+'Z');
+    const showLbl = i%3===0;
+    bars.innerHTML+=`
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default"
+           title="${dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}: ${p}% · ${precip[i].toFixed(1)}mm">
+        ${p>0&&precip[i]>0.1?`<div style="font-size:7px;color:${s>0?'var(--snow)':'var(--accent)'};font-family:monospace;line-height:1">${precip[i].toFixed(1)}</div>`:''}
+        <div style="width:100%;border-radius:3px 3px 0 0;height:${ht}px;background:${col};min-height:2px"></div>
+      </div>`;
+    lbls.innerHTML+=`<div style="flex:1;font-size:8px;color:var(--faint);font-family:monospace;text-align:center">
+      ${showLbl?dt.toLocaleTimeString('de-CH',{hour:'2-digit'}):''}
+    </div>`;
+  });
+
+  // mm sparkline — rain in blue, snow in snow-color
+  const rainVals = rain.slice(0,times.length);
+  const snowVals = snow.slice(0,times.length);
+  const allVals  = rainVals.map((r,i)=>r+snowVals[i]);
+  const maxMm    = Math.max(...allVals, 0.1);
+  const W=300, H=32, pad=2;
+  const mkPts = vals => vals.map((v,i)=>[
+    pad + i/(vals.length-1)*(W-pad*2),
+    H - pad - (v/maxMm)*(H-pad*2)
+  ]);
+  const rainPts = mkPts(rainVals);
+  const mkPath  = pts => pts.map((p,i)=>(i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(' ');
+  const mkFill  = (pts,col) => {
+    const d = pts.map((p,i)=>(i===0?`M${p[0]},${H}`:`L${p[0]},${p[1]}`)).join(' ')+` L${pts[pts.length-1][0]},${H} Z`;
+    return `<path d="${d}" fill="${col}" opacity=".25"/>`;
+  };
+  const svg = document.getElementById('precipMmSpark');
+  if(svg){
+    svg.innerHTML=`
+      ${mkFill(rainPts,'#4db8ff')}
+      <path d="${mkPath(rainPts)}" fill="none" stroke="#4db8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    `;
+  }
+
+  // "Next rain" summary text
+  const nextRain = document.getElementById('nextRainSummary');
+  if(nextRain){
+    // Find next hour with rain > 50% prob
+    const nextIdx = prob.findIndex((p,i)=>p>=40&&precip[i]>0.1);
+    const stopIdx = prob.findIndex((p,i)=>i>0&&prob[i-1]>=40&&p<20);
+    const totalMm = precip.reduce((a,b)=>a+b,0);
+    const maxMmH  = Math.max(...precip);
+    const rainyHrs= precip.filter(v=>v>0.1).length;
+
+    let summaryHtml='';
+    if(nextIdx===-1 && totalMm<0.1){
+      summaryHtml=`<div style="font-size:12px;color:var(--ok)">☀️ Kein Niederschlag in den nächsten 24h erwartet</div>`;
+    } else if(nextIdx===0){
+      summaryHtml=`<div style="font-size:12px;color:var(--accent)">🌧 Regen fällt gerade · ${totalMm.toFixed(1)} mm in 24h · Max. ${maxMmH.toFixed(1)} mm/h</div>`;
+    } else if(nextIdx>0){
+      const dt = new Date(times[nextIdx]+'Z');
+      const inH = nextIdx;
+      summaryHtml=`<div style="font-size:12px;color:var(--accent)">🌧 Regen erwartet in <strong>${inH}h</strong> (${dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}) · ${totalMm.toFixed(1)} mm in 24h</div>`;
+    }
+    if(rainyHrs>0){
+      summaryHtml+=`<div style="font-size:10px;color:var(--faint);margin-top:4px">${rainyHrs}h Niederschlag · Intensität: ${maxMmH<1?'Leicht':maxMmH<5?'Mäßig':maxMmH<10?'Stark':'Sehr stark'}</div>`;
+    }
+    nextRain.innerHTML=summaryHtml;
+  }
+
+  // Highlight badge
+  const badge = document.getElementById('precipForecastNext');
+  if(badge){
+    const next40 = prob.findIndex((p,i)=>p>=40&&precip[i]>0.1);
+    badge.textContent = next40===0?'Regen jetzt':next40>0?`Regen in ${next40}h`:'Trocken 24h';
+    badge.style.color = next40>=0&&precip[next40]>0.1?'var(--accent)':'var(--ok)';
+  }
 }
 
 // ── RADAR / MAP ────────────────────────────────────────────────────────────

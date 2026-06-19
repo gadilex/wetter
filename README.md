@@ -29,8 +29,8 @@ Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation,
 - 🛰 **Satellit** — Infrarot-Satellitenbild (animierbar)
 - 🌡 **Temperatur** — Heatmap über Europa
 - ⚡ **Blitze** — Live-Blitzortung, alle 2 Min. aktualisiert
-- 🇨🇭 **MeteoSwiss-Radar** — automatisch aktiv bei Schweizer Standort (siehe unten)
-- Radar-Intensitäts-Legende
+- 🇨🇭 **MeteoSwiss-Radar** — automatisch aktiv bei Schweizer Standort (1 km Auflösung)
+- 📊 **Niederschlagsprognose 24h** — stündliche Balken + Liniengrafik + Zusammenfassung
 
 ### Allgemein
 - 🔍 **Ortssuche** — beliebigen Ort weltweit suchen
@@ -39,6 +39,22 @@ Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation,
 - Alpiner Modus: Sonderdaten ab 800m, Hochalpin ab 1500m
 - Saisonal angepasste Daten (Schnee nur Herbst/Winter)
 - Versionsnummer im Header
+
+---
+
+## 📊 Niederschlagsprognose (Radar-Tab)
+
+Direkt unter der Radarkarte zeigt die App eine **standortgenaue 24h-Regenprognose**:
+
+| Element | Beschreibung |
+|---------|-------------|
+| **Wahrscheinlichkeits-Balken** | Stündlich · blau = Regen · blau-weiß = Schnee · grau = trocken |
+| **mm-Beschriftung** | Erwartete Niederschlagsmenge pro Stunde auf dem Balken |
+| **Liniengrafik** | mm/h-Verlauf für Regen und Schnee als überlagerte Kurven |
+| **Zusammenfassung** | „Regen in 2h", „Kein Niederschlag" oder „Regen fällt gerade" |
+| **Detailangaben** | Gesamtmenge in mm · Regenstunden · Intensität (Leicht bis Sehr stark) |
+
+> **Hinweis:** Animierte Radar-Forecasts (Regenfront-Animation in die Zukunft) sind in der kostenlosen RainViewer-API nicht enthalten. Der vorhandene Nowcast zeigt ~1h voraus. Die standortbasierte Open-Meteo Prognose ist für den genauen Standort präziser, da sie 30+ Wettermodelle kombiniert.
 
 ---
 
@@ -51,10 +67,7 @@ Wird der Standort innerhalb der Schweiz erkannt, wird automatisch der **MeteoSwi
 | **Auflösung** | ~5–10 km | **1 km** |
 | **Aktualisierung** | 10 Min. | **5 Min.** |
 | **Abdeckung** | Europa/Welt | Schweiz + Nachbarregionen |
-| **Besonderheit** | Animation, Nowcast | Kombiniert Radar + Bodenstationen |
 | **Alpine Täler** | Eingeschränkt | Optimiert für Alpentopographie |
-
-Das MeteoSwiss-Radar wird automatisch ein- und ausgeblendet je nach Standort. Ein Badge im Radar-Header zeigt die aktive Datenquelle an.
 
 > **Hinweis:** MeteoSwiss stellt derzeit noch keine animierte Zeitreihen-API bereit (geplant Ende 2026). Der MeteoSwiss-Layer zeigt daher immer den aktuellen Zeitpunkt; die Animation läuft weiterhin über RainViewer.
 
@@ -64,7 +77,7 @@ Das MeteoSwiss-Radar wird automatisch ein- und ausgeblendet je nach Standort. Ei
 
 | Dienst | Zweck | Kosten |
 |--------|-------|--------|
-| [Open-Meteo](https://open-meteo.com) | Wetterdaten & Vorhersage | Kostenlos (CC BY 4.0) |
+| [Open-Meteo](https://open-meteo.com) | Wetterdaten, Vorhersage & Niederschlagsprognose | Kostenlos (CC BY 4.0) |
 | [RainViewer](https://www.rainviewer.com/api.html) | Radar & Satellitenbild (Europa/Welt) | Kostenlos |
 | [MeteoSwiss / geo.admin.ch](https://wms.geo.admin.ch) | Hochauflösungs-Radar CH (WMS) | Kostenlos (Open Data) |
 | [OpenWeatherMap](https://openweathermap.org) | Temperatur-Heatmap | Kostenlos (free tier) |
@@ -121,18 +134,19 @@ Der Modus wird per Knopf oben rechts (🌙 / ☀️) umgeschaltet und im Browser
 
 ## ⚠️ Bekannte Einschränkungen
 
-- **Blitzortung:** Aufgrund von Browser-CORS-Einschränkungen kann die direkte Blitzortung-API blockiert sein. Die App fällt dann auf eine lokale Gewittererkennung basierend auf CAPE-Werten zurück.
-- **MeteoSwiss-Animation:** Animierte Zeitreihen sind bei MeteoSwiss noch nicht als API verfügbar (geplant Ende 2026). Nur der aktuelle Zeitpunkt wird als Overlay gezeigt.
+- **Radar-Forecast:** Animierte Regenfront-Prognose über mehrere Stunden ist in der kostenlosen RainViewer-API nicht verfügbar. Stattdessen: standortgenaue 24h-Prognose via Open-Meteo (Balken + Linie + Zusammenfassung).
+- **MeteoSwiss-Animation:** Zeitreihen-API bei MeteoSwiss noch nicht verfügbar (geplant Ende 2026).
+- **Blitzortung:** CORS-Einschränkungen können die direkte API blockieren — Fallback auf CAPE-basierte Gewittererkennung.
 - **Standortzugriff:** Safari/Chrome fragt beim ersten Öffnen nach dem Standort — einmalig erlauben.
-- **Offline:** Die App benötigt eine Internetverbindung für Wetterdaten und Karten.
-- **Alpine Täler:** Radarsignale werden von Berggipfeln abgeschirmt — CombiPrecip von MeteoSwiss korrigiert dies teilweise durch Interpolation.
+- **Alpine Täler:** Radarsignale werden von Berggipfeln abgeschirmt — MeteoSwiss CombiPrecip korrigiert dies durch Interpolation.
+- **Offline:** Internetverbindung erforderlich.
 
 ---
 
 ## 📄 Lizenz
 
-Wetter-App Code: frei verwendbar für private Zwecke.  
-Wetterdaten: Open-Meteo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)  
-MeteoSwiss-Daten: [Open Government Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html) — Quellenangabe: MeteoSwiss  
-Radardaten: RainViewer (nur für private/nicht-kommerzielle Nutzung)  
+Wetter-App Code: frei verwendbar für private Zwecke.
+Wetterdaten: Open-Meteo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+MeteoSwiss-Daten: [Open Government Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html) — Quellenangabe: MeteoSwiss
+Radardaten: RainViewer (nur für private/nicht-kommerzielle Nutzung)
 Blitzdaten: Blitzortung.org (nur für private/nicht-kommerzielle Nutzung)
