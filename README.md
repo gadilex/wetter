@@ -1,4 +1,4 @@
-# 🌤 Wetter App — v3.3
+# 🌤 Wetter App — v3.4
 
 Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation, keine API-Keys nötig. Einfach auf GitHub Pages hosten und im iPhone-Browser öffnen.
 
@@ -83,13 +83,14 @@ Direkt unter der Radarkarte zeigt die App eine **standortgenaue 24h-Regenprognos
 
 ## 🔄 Radar Auto-Refresh (v3.1)
 
-Der Radar aktualisiert sich jetzt automatisch:
+Der Radar aktualisiert sich automatisch:
 
-- **Alle 5 Minuten** werden neue Frames von RainViewer geladen (sofern keine Animation läuft)
+- **Alle 5 Minuten** werden neue Frames von RainViewer geladen
 - **↻ Button** — sofortiger manueller Refresh
 - **⏭ Button** — springt zum neuesten verfügbaren Frame
-- Der **Zeitstempel** im Header zeigt immer den Stand der geladenen Daten an
-- Nach einem Refresh wird automatisch der neueste Frame angezeigt
+- Der **Zeitbereich** im Header zeigt z.B. „19:30–21:30 · 3 Min. alt"
+
+> **Wichtig — 2h Datenfenster:** RainViewer (kostenlos) liefert immer nur die **letzten ~2 Stunden** Radardaten. Das ist eine API-Einschränkung, kein Bug. Um 21:30 Uhr zeigt der Radar also Daten von ca. 19:30–21:30. Die Daten sind aktuell — der Zeitbereich verschiebt sich laufend mit der Echtzeit.
 
 ---
 
@@ -165,6 +166,13 @@ Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln 
 ---
 
 ## 📋 Changelog
+
+### v3.4
+- Klarstellung: RainViewer zeigt systembedingt nur die letzten ~2h Radar (API-Limit, kein Bug)
+- Neu: Zeitbereich im Radar-Header sichtbar (z.B. „19:30–21:30 · 3 Min. alt")
+- Neu: Info-Hinweis unter der Karte erklärt das 2h-Fenster
+- Neu: no-cache Meta-Header gegen GitHub Pages / Browser-Caching
+- Versionsnummer erhöht
 
 ### v3.3
 - Fix: Cache-Busting für RainViewer JSON (`cache: no-store` + Timestamp-Parameter)

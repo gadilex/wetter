@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Verhindert Browser- und GitHub-Pages-Caching der Seite -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Wetter</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -258,7 +262,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.3 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v3.4 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -416,6 +420,10 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
           <button class="rbtn" onclick="radarJumpLatest()" title="Neuester Frame">⏭</button>
           <button class="rbtn" onclick="loadRadarData()" title="Radar aktualisieren">↻</button>
           <div class="radar-ts" id="radarTs">–</div>
+        </div>
+        <!-- Info: RainViewer zeigt immer nur die letzten ~2h -->
+        <div style="padding:8px 14px;font-size:10px;color:var(--faint);border-top:1px solid rgba(255,255,255,.05);line-height:1.5">
+          ℹ️ RainViewer (kostenlos) zeigt nur die letzten ~2h. Die Daten sind immer aktuell — der Zeitbereich verschiebt sich laufend mit.
         </div>
       </div>
 
@@ -1111,12 +1119,17 @@ async function loadRadarData(){
 
     // Zeitstempel des neuesten Frames anzeigen
     const lastFrame = radarFrames[radarIdx];
-    const lastTime = lastFrame
-      ? new Date(lastFrame.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})
-      : '–';
-    const ageMin = lastFrame ? Math.round((Date.now()/1000 - lastFrame.time)/60) : 0;
-    document.getElementById('radarSub').textContent=
-      `${radarFrames.length} Frames · ${lastTime} (${ageMin} Min. alt)`;
+    const firstFrame = radarFrames[0];
+    if(lastFrame && firstFrame){
+      const lastTime = new Date(lastFrame.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+      const firstTime = new Date(firstFrame.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+      const ageMin = Math.round((Date.now()/1000 - lastFrame.time)/60);
+      // RainViewer liefert die letzten ~2h + Nowcast — das ist die API-Grenze
+      document.getElementById('radarSub').textContent=
+        `${firstTime}–${lastTime} · ${ageMin > 20 ? '⚠ ' + ageMin + ' Min. alt' : ageMin + ' Min. alt'}`;
+    } else {
+      document.getElementById('radarSub').textContent=`${radarFrames.length} Frames geladen`;
+    }
 
   }catch(e){
     console.warn('Radar load error:', e);
