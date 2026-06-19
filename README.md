@@ -1,4 +1,4 @@
-# 🌤 Wetter App — v3.4
+# 🌤 Wetter App — v3.5
 
 Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation, keine API-Keys nötig. Einfach auf GitHub Pages hosten und im iPhone-Browser öffnen.
 
@@ -166,6 +166,14 @@ Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln 
 ---
 
 ## 📋 Changelog
+
+### v3.5
+- Neu: DWD (Deutscher Wetterdienst) als primäre Radarquelle — staatlich, offen, immer aktuell, keine Rate-Limits
+- Fix: RainViewer war unzuverlässig (2025 eingeschränkter Betrieb) und lieferte veraltete Daten
+- RainViewer bleibt als Fallback für den Satelliten-Layer
+- Radar zeigt jetzt immer den aktuellen Moment (Live-WMS, kein Frame-Array)
+- Auto-Refresh alle 5 Min. lädt DWD-Layer neu
+- Versionsnummer erhöht
 
 ### v3.4
 - Klarstellung: RainViewer zeigt systembedingt nur die letzten ~2h Radar (API-Limit, kein Bug)
