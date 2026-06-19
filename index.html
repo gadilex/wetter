@@ -258,7 +258,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.1 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v3.2 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -599,36 +599,51 @@ async function loadForCoords(lat,lon,isGPS=false){
 
   let wxData;
   if(inCH){
-    // Schweiz: ICON-CH1 (1km, 33h) + ICON-CH2 (2.1km, 5 Tage) via Open-Meteo MeteoSwiss API
-    // Wir rufen beide Modelle parallel ab und kombinieren sie
-    const [r1, r2] = await Promise.all([
-      fetch(`https://api.open-meteo.com/v1/meteoswiss?${new URLSearchParams({...commonParams, models:'icon_ch1', forecast_days:2})}`),
-      fetch(`https://api.open-meteo.com/v1/meteoswiss?${new URLSearchParams({...commonParams, models:'icon_ch2', forecast_days:8})}`)
-    ]);
-    if(!r1.ok || !r2.ok) throw new Error('MeteoSwiss-Dienst nicht erreichbar.');
-    const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+    // Schweiz: ICON-CH1 (1km, 33h) + ICON-CH2 (2.1km, 5 Tage)
+    // Korrekte Open-Meteo URL: /v1/forecast mit models=meteoswiss_icon_ch1/ch2
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({
+          ...commonParams, models:'meteoswiss_icon_ch1', forecast_days:2
+        })}`),
+        fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({
+          ...commonParams, models:'meteoswiss_icon_ch2', forecast_days:8
+        })}`)
+      ]);
 
-    // CH1 für aktuell + erste 33h, CH2 für Tagesvorhersage und Rest
-    wxData = d2; // Basis: CH2 (5 Tage)
-    wxData.current = d1.current; // Aktuell: CH1 (präziser)
-    // Stundenwerte: CH1 für die ersten 33h, danach CH2
-    const ch1Hours = d1.hourly.time.length;
-    Object.keys(d1.hourly).forEach(key=>{
-      if(d2.hourly[key]){
-        wxData.hourly[key] = [
-          ...d1.hourly[key],           // CH1: erste 33h (1km)
-          ...d2.hourly[key].slice(ch1Hours)  // CH2: Rest
-        ];
-      }
-    });
-    wxData.hourly.time = [
-      ...d1.hourly.time,
-      ...d2.hourly.time.slice(ch1Hours)
-    ];
-    wxData._model = 'MeteoSwiss ICON-CH1 (1km) + ICON-CH2 (2.1km)';
+      if(!r1.ok || !r2.ok) throw new Error('MeteoSwiss nicht verfügbar');
+      const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+      if(d1.error || d2.error) throw new Error(d1.reason || d2.reason || 'MeteoSwiss Fehler');
+
+      // CH1 für aktuell + erste 33h, CH2 für Tagesvorhersage und Rest
+      wxData = d2; // Basis: CH2 (5 Tage)
+      wxData.current = d1.current; // Aktuell von CH1 (präziser, 1km)
+      // Stundenwerte: CH1 für die ersten 33h, danach CH2
+      const ch1Hours = d1.hourly.time.length;
+      Object.keys(d1.hourly).forEach(key=>{
+        if(d2.hourly[key] && Array.isArray(d1.hourly[key])){
+          wxData.hourly[key] = [
+            ...d1.hourly[key],
+            ...d2.hourly[key].slice(ch1Hours)
+          ];
+        }
+      });
+      wxData.hourly.time = [
+        ...d1.hourly.time,
+        ...d2.hourly.time.slice(ch1Hours)
+      ];
+      wxData._model = 'MeteoSwiss ICON-CH1 (1km) + ICON-CH2 (2.1km)';
+    } catch(e) {
+      // Fallback auf best_match wenn MeteoSwiss nicht verfügbar
+      console.warn('MeteoSwiss ICON fallback:', e.message);
+      const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({...commonParams, forecast_days:8})}`);
+      if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
+      wxData = await wr.json();
+      wxData._model = 'Open-Meteo best_match (Fallback)';
+    }
   } else {
-    // Welt: best_match (wählt automatisch bestes verfügbares Modell)
-    const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams(commonParams)}`);
+    // Welt: best_match
+    const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({...commonParams, forecast_days:8})}`);
     if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
     wxData = await wr.json();
     wxData._model = 'Open-Meteo best_match';
@@ -639,9 +654,11 @@ async function loadForCoords(lat,lon,isGPS=false){
   loc={lat,lon,elev,country,isAlpine:elev>800,isHighAlpine:elev>1500,inCH};
 
   document.getElementById('locName').textContent=name+(loc.isHighAlpine?' 🏔':loc.isAlpine?' ⛰':'')+(isGPS?' 📍':'');
+  const modelLabel = wx._model?.includes('MeteoSwiss') ? '🇨🇭 ICON-CH1/2'
+                   : wx._model?.includes('Fallback')   ? '⚠ Fallback'
+                   : 'Open-Meteo';
   document.getElementById('locSub').textContent=
-    `${sub}${elev>0?' · '+elev+'m ü.M.':''}` +
-    (inCH?' · 🇨🇭 ICON-CH1/2':' · Open-Meteo');
+    `${sub}${elev>0?' · '+elev+'m ü.M.':''}` + ` · ${modelLabel}`;
 
   nowIdx=Math.max(0,wx.hourly.time.findIndex(t=>new Date(t+'Z')>=new Date()));
   renderNow(); renderWeek(); renderPrecipForecast();
@@ -859,12 +876,13 @@ function renderNow(){
       </div>`;
   }
   if(loc.inCH){
+    const isFallback = wx._model?.includes('Fallback');
     chipsHtml+=`
-      <div class="chip wide" style="border-color:rgba(77,184,255,.25);background:rgba(77,184,255,.06)">
-        <div class="chip-icon">🇨🇭</div>
-        <div class="chip-val" style="font-size:13px;line-height:1.3">ICON-CH1 · ICON-CH2</div>
-        <div class="chip-lbl">MeteoSwiss Modell aktiv</div>
-        <div class="chip-sub">1 km / 2.1 km Auflösung · alle 3–6h aktualisiert · via Open-Meteo</div>
+      <div class="chip wide" style="border-color:${isFallback?'rgba(255,176,77,.25)':'rgba(77,184,255,.25)'};background:${isFallback?'rgba(255,176,77,.06)':'rgba(77,184,255,.06)'}">
+        <div class="chip-icon">${isFallback?'⚠️':'🇨🇭'}</div>
+        <div class="chip-val" style="font-size:13px;line-height:1.3">${isFallback?'Open-Meteo (Fallback)':'ICON-CH1 · ICON-CH2'}</div>
+        <div class="chip-lbl">${isFallback?'MeteoSwiss nicht verfügbar':'MeteoSwiss Modell aktiv'}</div>
+        <div class="chip-sub">${isFallback?'Best-match Modell wird verwendet':'1 km / 2.1 km Auflösung · alle 3–6h · via Open-Meteo'}</div>
       </div>`;
   }
   document.getElementById('chipsGrid').innerHTML=chipsHtml;

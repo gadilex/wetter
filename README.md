@@ -1,4 +1,4 @@
-# 🌤 Wetter App — v3.1
+# 🌤 Wetter App — v3.2
 
 Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation, keine API-Keys nötig. Einfach auf GitHub Pages hosten und im iPhone-Browser öffnen.
 
@@ -165,6 +165,13 @@ Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln 
 ---
 
 ## 📋 Changelog
+
+### v3.2
+- Fix: Korrekter Open-Meteo Endpoint (`/v1/forecast` statt `/v1/meteoswiss`)
+- Fix: Korrekter Modellname (`meteoswiss_icon_ch1/ch2` statt `icon_ch1/ch2`)
+- Neu: Automatischer Fallback auf `best_match` wenn MeteoSwiss nicht verfügbar
+- Neu: Fallback-Status sichtbar im Header und Jetzt-Tab (⚠ Fallback)
+- Versionsnummer erhöht
 
 ### v3.1
 - Radar Auto-Refresh alle 5 Minuten
