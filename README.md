@@ -1,4 +1,4 @@
-# 🌤 Wetter App — v3.2
+# 🌤 Wetter App — v3.3
 
 Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation, keine API-Keys nötig. Einfach auf GitHub Pages hosten und im iPhone-Browser öffnen.
 
@@ -165,6 +165,13 @@ Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln 
 ---
 
 ## 📋 Changelog
+
+### v3.3
+- Fix: Cache-Busting für RainViewer JSON (`cache: no-store` + Timestamp-Parameter)
+- Fix: Browser cached keine alten Radar-Frames mehr
+- Neu: Zeitstempel zeigt Alter des Frames in Minuten (z.B. „18:45 (3 Min. alt)")
+- Neu: Fehlertext im Radar-Header bei Ladefehler verbessert
+- Versionsnummer erhöht
 
 ### v3.2
 - Fix: Korrekter Open-Meteo Endpoint (`/v1/forecast` statt `/v1/meteoswiss`)

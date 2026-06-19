@@ -258,7 +258,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.2 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v3.3 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -1075,46 +1075,64 @@ let radarRefreshTimer = null;
 
 async function loadRadarData(){
   try{
-    fetch('https://api.rainviewer.com/public/weather-maps.json')
-      .then(r=>r.json())
-      .then(data=>{
-        // Remove old layers from map before replacing
-        radarLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
-        satLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
+    // Cache-busting: Timestamp als Parameter damit Browser nie cached
+    const cacheBust = Math.floor(Date.now() / 60000); // ändert sich jede Minute
+    const res = await fetch(
+      `https://api.rainviewer.com/public/weather-maps.json?_=${cacheBust}`,
+      { cache: 'no-store' }  // Browser explizit anweisen nicht zu cachen
+    );
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
 
-        const rAll=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
-        radarFrames=rAll.slice(-14);
-        radarLayers=radarFrames.map(f=>
-          L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/4/1_1.png`,
-            {tileSize:256,opacity:.75,maxZoom:14,zIndex:10}));
-        satFrames=data.satellite?.infrared||[];
-        satLayers=satFrames.map(f=>
-          L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
-            {tileSize:256,opacity:.85,maxZoom:8,zIndex:10}));
+    // Remove old layers from map before replacing
+    radarLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
+    satLayers.forEach(l=>{if(radarMap&&radarMap.hasLayer(l))radarMap.removeLayer(l)});
 
-        // Always jump to latest frame on (re)load
-        radarIdx=radarLayers.length-1;
-        satIdx=satLayers.length-1;
+    const rAll=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
+    radarFrames=rAll.slice(-14);
 
-        if(currentMapLayer==='radar') showRadarFrame(radarIdx);
-        if(currentMapLayer==='satellite'&&satLayers.length) showSatFrame(satIdx);
-        updateRadarSourceBadge();
+    // Tile-URLs mit Cache-Buster damit auch die Kacheln frisch geladen werden
+    radarLayers=radarFrames.map(f=>
+      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/4/1_1.png`,
+        {tileSize:256,opacity:.75,maxZoom:14,zIndex:10}));
 
-        const lastTime = radarFrames[radarIdx]
-          ? new Date(radarFrames[radarIdx].time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})
-          : '–';
-        document.getElementById('radarSub').textContent=
-          `${radarFrames.length} Frames · Stand ${lastTime}`;
-      }).catch(()=>{ document.getElementById('radarSub').textContent='Fehler beim Laden'; });
-  }catch(e){ document.getElementById('radarSub').textContent='Fehler'; }
+    satFrames=data.satellite?.infrared||[];
+    satLayers=satFrames.map(f=>
+      L.tileLayer(`https://tilecache.rainviewer.com${f.path}/256/{z}/{x}/{y}/0/0_0.png`,
+        {tileSize:256,opacity:.85,maxZoom:8,zIndex:10}));
+
+    // Immer zum neuesten Frame springen
+    radarIdx=radarLayers.length-1;
+    satIdx=satLayers.length-1;
+
+    if(currentMapLayer==='radar') showRadarFrame(radarIdx);
+    if(currentMapLayer==='satellite'&&satLayers.length) showSatFrame(satIdx);
+    updateRadarSourceBadge();
+
+    // Zeitstempel des neuesten Frames anzeigen
+    const lastFrame = radarFrames[radarIdx];
+    const lastTime = lastFrame
+      ? new Date(lastFrame.time*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})
+      : '–';
+    const ageMin = lastFrame ? Math.round((Date.now()/1000 - lastFrame.time)/60) : 0;
+    document.getElementById('radarSub').textContent=
+      `${radarFrames.length} Frames · ${lastTime} (${ageMin} Min. alt)`;
+
+  }catch(e){
+    console.warn('Radar load error:', e);
+    document.getElementById('radarSub').textContent='Fehler beim Laden – ↻ nochmal versuchen';
+  }
 }
 
 function startRadarAutoRefresh(){
-  // Refresh radar data every 5 minutes to get new frames
   if(radarRefreshTimer) clearInterval(radarRefreshTimer);
-  radarRefreshTimer = setInterval(()=>{
-    if(!radarPlaying){ // only auto-refresh when not playing animation
-      loadRadarData();
+  // Alle 5 Minuten neue Frames laden
+  radarRefreshTimer = setInterval(async ()=>{
+    await loadRadarData();
+    // Wenn nicht am spielen: zum neuesten Frame springen
+    if(!radarPlaying && currentMapLayer==='radar' && radarLayers.length){
+      radarIdx = radarLayers.length - 1;
+      showRadarFrame(radarIdx);
     }
   }, 5 * 60 * 1000);
 }
@@ -1189,9 +1207,13 @@ function showRadarFrame(idx){
 
   if(radarFrames[idx]){
     const dt=new Date(radarFrames[idx].time*1000);
-    const isNow=radarFrames[idx].path?.includes('nowcast');
+    const isNowcast=radarFrames[idx].path?.includes('nowcast');
+    const ageMin = Math.round((Date.now()/1000 - radarFrames[idx].time)/60);
+    const timeStr = dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
     document.getElementById('radarTs').textContent=
-      dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})+(isNow?' (Prognose)':'');
+      isNowcast
+        ? `${timeStr} (Prognose)`
+        : `${timeStr} (${ageMin} Min. alt)`;
   }
 }
 
