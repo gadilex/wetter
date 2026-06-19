@@ -13,19 +13,30 @@
   --bg:#060d1a; --surface:rgba(255,255,255,.058); --border:rgba(255,255,255,.09);
   --accent:#4db8ff; --warm:#ffb04d; --snow:#b8d8ff; --rain:#4d7fff;
   --text:#e8f4ff; --muted:rgba(232,244,255,.45); --faint:rgba(232,244,255,.25);
+  --nav-bg:rgba(6,13,26,.94); --search-bg:rgba(255,255,255,.07);
+  --search-result-bg:#0d1f38; --hero-grad:linear-gradient(135deg,rgba(20,50,100,.6),rgba(8,18,40,.85));
+  --glow:radial-gradient(ellipse at 20% 0%,#1a4480 0%,transparent 55%),linear-gradient(180deg,#060d1a,#020508);
   --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+}
+body.light {
+  --bg:#f0f4f8; --surface:rgba(0,0,0,.055); --border:rgba(0,0,0,.1);
+  --text:#0d1f38; --muted:rgba(13,31,56,.5); --faint:rgba(13,31,56,.3);
+  --nav-bg:rgba(240,244,248,.95); --search-bg:rgba(0,0,0,.06);
+  --search-result-bg:#ffffff;
+  --hero-grad:linear-gradient(135deg,rgba(180,215,255,.7),rgba(210,230,255,.9));
+  --glow:radial-gradient(ellipse at 20% 0%,rgba(77,184,255,.15) 0%,transparent 55%),linear-gradient(180deg,#ddeeff,#f0f4f8);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 ::-webkit-scrollbar{display:none}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);
-     max-width:480px;margin:0 auto;padding-bottom:calc(72px + var(--safe-bottom));min-height:100dvh}
+     max-width:480px;margin:0 auto;padding-bottom:calc(72px + var(--safe-bottom));min-height:100dvh;
+     transition:background .3s,color .3s}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes lightning{0%{opacity:0}10%{opacity:1}20%{opacity:0}30%{opacity:.8}100%{opacity:0}}
 
-.bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse at 20% 0%,#1a4480 0%,transparent 55%),linear-gradient(180deg,#060d1a,#020508)}
+.bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--glow);transition:background .4s}
 .app{position:relative;z-index:1}
 
 /* HEADER */
@@ -39,16 +50,16 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 /* SEARCH BAR */
 .search-bar{margin:0 14px 12px;position:relative}
-.search-input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);
+.search-input{width:100%;background:var(--search-bg);border:1px solid var(--border);
   border-radius:14px;padding:11px 42px 11px 14px;font-size:14px;color:var(--text);
-  outline:none;font-family:inherit}
+  outline:none;font-family:inherit;transition:background .2s,border-color .2s}
 .search-input::placeholder{color:var(--faint)}
 .search-input:focus{border-color:rgba(77,184,255,.4);background:rgba(77,184,255,.07)}
 .search-icon{position:absolute;right:13px;top:50%;transform:translateY(-50%);
   font-size:16px;pointer-events:none;color:var(--muted)}
 .search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:200;
-  background:#0d1f38;border:1px solid var(--border);border-radius:14px;overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,.5)}
+  background:var(--search-result-bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.3)}
 .search-item{padding:12px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);
   font-size:13px;transition:background .15s}
 .search-item:last-child{border-bottom:none}
@@ -59,7 +70,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 /* NAV */
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:480px;background:rgba(6,13,26,.94);backdrop-filter:blur(20px);
+  width:100%;max-width:480px;background:var(--nav-bg);backdrop-filter:blur(20px);
   border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:var(--safe-bottom)}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;
   padding:10px 0 12px;cursor:pointer;color:var(--faint);font-size:10px;
@@ -89,9 +100,9 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 /* HERO */
 .hero{margin:0 14px 16px;
-  background:linear-gradient(135deg,rgba(20,50,100,.6),rgba(8,18,40,.85));
+  background:var(--hero-grad);
   border:1px solid var(--border);border-radius:24px;padding:22px 20px 18px;
-  backdrop-filter:blur(18px);position:relative;overflow:hidden}
+  backdrop-filter:blur(18px);position:relative;overflow:hidden;transition:background .3s}
 .hero-glow{position:absolute;top:-60px;right:-30px;width:200px;height:200px;border-radius:50%;
   background:radial-gradient(circle,rgba(77,184,255,.08),transparent 70%);pointer-events:none}
 .hero-top{display:flex;justify-content:space-between;align-items:flex-start}
@@ -205,6 +216,24 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   background:linear-gradient(90deg,#3300ff,#0055ff,#00aaff,#00ff88,#aaff00,#ffff00,#ffaa00,#ff5500,#ff0000)}
 .temp-legend-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);font-family:monospace}
 
+/* LIGHT MODE OVERRIDES */
+body.light .card{background:rgba(255,255,255,.8);border-color:rgba(0,0,0,.1)}
+body.light .chip{background:rgba(255,255,255,.8);border-color:rgba(0,0,0,.1)}
+body.light .hour-card{background:rgba(255,255,255,.7);border-color:rgba(0,0,0,.1)}
+body.light .hour-card.now{background:linear-gradient(180deg,rgba(77,184,255,.2),rgba(77,184,255,.05))}
+body.light .hero{box-shadow:0 4px 24px rgba(77,184,255,.12)}
+body.light .loading-state{color:var(--muted)}
+body.light .nav{box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+body.light .search-results{box-shadow:0 8px 32px rgba(0,0,0,.12)}
+body.light .day-bar-wrap{background:rgba(0,0,0,.08)}
+body.light .uv-bar{background:rgba(0,0,0,.08)}
+body.light .rain-bar-lbl,.spark-lbl{color:var(--faint)}
+body.light .rbtn{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12);color:var(--text)}
+body.light .layer-btns{border-color:rgba(0,0,0,.07)}
+body.light .radar-controls{border-color:rgba(0,0,0,.07)}
+body.light .radar-hdr{border-color:rgba(0,0,0,.07)}
+body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
+
 .attr{text-align:center;font-size:10px;color:var(--faint);padding:4px 0 14px}
 </style>
 </head>
@@ -218,10 +247,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
       <div class="loc-name" id="locName">Standort wird ermittelt…</div>
       <div class="loc-sub" id="locSub">–</div>
     </div>
+    <button id="themeBtn" onclick="toggleTheme()" title="Hell/Dunkel"
+      style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+             background:var(--surface);font-size:17px;cursor:pointer;
+             display:flex;align-items:center;justify-content:center;flex-shrink:0">🌙</button>
     <button class="refresh-btn" id="refreshBtn" onclick="loadWeather()">
       <span>↻</span>
     </button>
   </div>
+
+  <!-- VERSION BAR -->
+  <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
+              margin:-4px 0 8px;letter-spacing:.5px">v3.0 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -422,6 +459,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────
+const APP_VERSION = 'v3.0';
 const WMO={0:['☀️','Klar'],1:['🌤','Überwiegend klar'],2:['⛅','Wechselhaft'],3:['☁️','Bewölkt'],
   45:['🌫','Nebel'],48:['🌫','Gefrierender Nebel'],
   51:['🌦','Leichter Nieselregen'],53:['🌦','Nieselregen'],55:['🌧','Starker Nieselregen'],
@@ -456,6 +494,31 @@ let tempLayer=null;
 let lightningOn=false, lightningMarkers=[], lightningTimer=null;
 // Search
 let searchTimer=null;
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+let darkMode = localStorage.getItem('theme') !== 'light';
+function applyTheme(){
+  document.body.classList.toggle('light', !darkMode);
+  document.getElementById('themeBtn').textContent = darkMode ? '🌙' : '☀️';
+  // Update leaflet tiles if map is open
+  if(radarMap && baseLayer){
+    radarMap.removeLayer(baseLayer);
+    baseLayer = L.tileLayer(
+      darkMode
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {maxZoom:14}
+    ).addTo(radarMap);
+    baseLayer.setZIndex(-1);
+  }
+}
+function toggleTheme(){
+  darkMode = !darkMode;
+  localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  applyTheme();
+}
+// Apply on load
+applyTheme();
 
 // ── Init ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',loadWeather);
@@ -795,7 +858,12 @@ function initRadar(){
   radarInited=true;
   const center=loc.lat?[loc.lat,loc.lon]:[46.8,8.2];
   radarMap=L.map('radarMap',{zoomControl:true,attributionControl:false}).setView(center,6);
-  baseLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:14}).addTo(radarMap);
+  baseLayer=L.tileLayer(
+    darkMode
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {maxZoom:14}
+  ).addTo(radarMap);
   if(loc.lat){
     L.circleMarker([loc.lat,loc.lon],{radius:7,fillColor:'#4db8ff',color:'#fff',weight:2,fillOpacity:1})
      .addTo(radarMap).bindPopup(document.getElementById('locName').textContent.replace(/ [📍⛰🏔]/g,''));
