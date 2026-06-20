@@ -38,7 +38,6 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-@keyframes lightning{0%{opacity:0}10%{opacity:1}20%{opacity:0}30%{opacity:.8}100%{opacity:0}}
 
 .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--glow);transition:background .4s}
 .app{position:relative;z-index:1}
@@ -207,8 +206,6 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .layer-btns{padding:8px 14px 10px;display:flex;gap:7px;border-bottom:1px solid rgba(255,255,255,.05)}
 
 /* LIGHTNING FLASH */
-.lightning-flash{position:fixed;inset:0;background:rgba(255,255,180,.03);
-  pointer-events:none;z-index:999;animation:lightning .8s ease-out forwards}
 
 /* LEGEND */
 .legend-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:6px}
@@ -262,7 +259,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
   <!-- VERSION BAR -->
   <div style="text-align:center;font-size:10px;color:var(--faint);font-family:monospace;
-              margin:-4px 0 8px;letter-spacing:.5px">v3.6 · Wetter App</div>
+              margin:-4px 0 8px;letter-spacing:.5px">v4.1 · Wetter App</div>
 
   <!-- SEARCH BAR -->
   <div class="search-bar">
@@ -392,11 +389,11 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
     <!-- TAB: RADAR -->
     <div id="tabRadar" class="view">
-      <div class="sec-label">Karte & Radar</div>
+      <div class="sec-label">Niederschlagsradar</div>
       <div class="card radar-card">
         <div class="radar-hdr">
           <div class="radar-dot"></div>
-          <div class="radar-title">Live Karte</div>
+          <div class="radar-title">Live Radar</div>
           <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
             <div class="radar-sub" id="radarSub">wird geladen…</div>
             <div id="radarSourceBadge" style="font-size:10px;color:var(--faint);font-family:monospace"></div>
@@ -405,24 +402,21 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
 
         <!-- LAYER BUTTONS -->
         <div class="layer-btns">
-          <button class="rbtn active" id="btnRadar"     onclick="setMapLayer('radar')">🌧 Radar</button>
-          <button class="rbtn"        id="btnSat"       onclick="setMapLayer('satellite')">🛰 Satellit</button>
-          <button class="rbtn"        id="btnTemp"      onclick="setMapLayer('temp')">🌡 Temperatur</button>
-          <button class="rbtn"        id="btnLightning" onclick="toggleLightning()" style="margin-left:auto">⚡ Blitze</button>
+          <button class="rbtn active" id="btnRadar" onclick="setMapLayer('radar')">🌧 Radar</button>
+          <button class="rbtn"        id="btnSat"   onclick="setMapLayer('satellite')">🛰 Satellit</button>
         </div>
 
         <div id="radarMap"></div>
 
         <div class="radar-controls">
           <button class="rbtn" onclick="radarPrev()">◀</button>
-          <button class="rbtn" onclick="radarNext()">▶</button>
           <button class="rbtn" id="playBtn" onclick="togglePlay()">▶ Play</button>
-          <button class="rbtn" onclick="radarJumpLatest()" title="Neuester Frame">⏭</button>
-          <button class="rbtn" onclick="loadRadarData()" title="Radar aktualisieren">↻</button>
+          <button class="rbtn" onclick="radarNext()">▶</button>
+          <button class="rbtn" onclick="loadRadarData()" title="Aktualisieren">↻</button>
           <div class="radar-ts" id="radarTs">–</div>
         </div>
         <div style="padding:8px 14px;font-size:10px;color:var(--faint);border-top:1px solid rgba(255,255,255,.05);line-height:1.5">
-          ℹ️ RainViewer zeigt die letzten ~2h. Zeitbereich verschiebt sich laufend mit der Echtzeit.
+          ℹ️ RainViewer zeigt die letzten ~2h plus Kurzprognose. Zeitbereich verschiebt sich laufend mit.
         </div>
       </div>
 
@@ -433,17 +427,13 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
           <div style="font-size:12px;font-weight:500">🌧 Regen · ❄️ Schnee · % Wahrscheinlichkeit</div>
           <div style="font-size:10px;color:var(--faint);font-family:monospace" id="precipForecastNext">–</div>
         </div>
-        <!-- Probability bars -->
         <div style="display:flex;gap:2px;align-items:flex-end;height:60px;margin-bottom:6px" id="precipForecastBars"></div>
-        <!-- Hour labels -->
         <div style="display:flex;justify-content:space-between;margin-bottom:10px" id="precipForecastLabels"></div>
-        <!-- mm line chart -->
         <svg id="precipMmSpark" viewBox="0 0 300 32" style="width:100%;height:32px;display:block;margin-bottom:4px"></svg>
         <div style="display:flex;gap:14px;font-size:10px;color:var(--faint)">
           <span style="color:var(--accent)">— mm/h Regen</span>
           <span style="color:var(--snow)">— mm/h Schnee</span>
         </div>
-        <!-- Next rain summary -->
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="nextRainSummary"></div>
       </div>
 
@@ -462,28 +452,7 @@ body.light .daily-card .day-row{border-color:rgba(0,0,0,.05)}
         <div class="legend-labels"><span>Leicht</span><span>Mäßig</span><span>Stark</span><span>Extrem</span></div>
       </div>
 
-      <!-- LEGEND TEMP -->
-      <div id="legendTemp" class="card" style="margin:0 14px 12px;padding:14px 16px;display:none">
-        <div style="font-size:12px;font-weight:500;margin-bottom:8px">Temperatur</div>
-        <div class="temp-legend"></div>
-        <div class="temp-legend-labels"><span>-40°</span><span>-20°</span><span>0°</span><span>+20°</span><span>+40°C</span></div>
-        <div style="font-size:10px;color:var(--faint);margin-top:6px">Open-Meteo Temperatur-Overlay (2m Höhe)</div>
-      </div>
-
-      <!-- LIGHTNING INFO -->
-      <div id="lightningInfo" class="card" style="margin:0 14px 12px;padding:14px 16px;display:none">
-        <div style="font-size:12px;font-weight:500;margin-bottom:6px">⚡ Blitze (letzte 60 Min.)</div>
-        <div style="font-size:11px;color:var(--muted)" id="lightningCount">Wird geladen…</div>
-        <div style="font-size:10px;color:var(--faint);margin-top:4px">Quelle: Blitzortung.org · Wird alle 2 Min. aktualisiert</div>
-      </div>
-
-      <div id="chRadarInfo" class="card" style="margin:0 14px 12px;padding:13px 16px;display:none">
-        <div style="font-size:12px;font-weight:500;margin-bottom:5px">🇨🇭 MeteoSwiss Hochauflösungs-Radar</div>
-        <div style="font-size:11px;color:var(--muted)">Standort in der Schweiz erkannt — MeteoSwiss CombiPrecip wird zusätzlich zum RainViewer-Radar eingeblendet. Auflösung: 1 km · Aktualisierung: alle 5 Min.</div>
-        <div style="font-size:10px;color:var(--faint);margin-top:4px">Quelle: MeteoSwiss / geo.admin.ch (Open Data)</div>
-      </div>
-
-      <div class="attr">Radar: RainViewer · CH: MeteoSwiss/geo.admin.ch · Karte: CartoDB</div>
+      <div class="attr">Radar & Satellit: RainViewer · Karte: CartoDB / OpenStreetMap</div>
     </div>
 
   </div><!-- /weatherView -->
@@ -516,6 +485,11 @@ function beaufort(k){const b=[1,5,11,19,28,38,49,61,74,88,102,117];return b.find
 function fmtHHMM(iso){return new Date(iso+'Z').toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}
 function getSeason(){const m=new Date().getMonth();return m>=2&&m<=4?'spring':m>=5&&m<=7?'summer':m>=8&&m<=10?'autumn':'winter'}
 function isWinter(){return['autumn','winter'].includes(getSeason())}
+// Sichere Wert-Helfer: fangen null/undefined/NaN ab (wichtig bei MeteoSwiss ICON,
+// das nicht alle Felder liefert)
+function hasVal(v){return v!==null&&v!==undefined&&!Number.isNaN(v)}
+function num(v,fallback){return hasVal(v)?v:(fallback!==undefined?fallback:null)}
+function rnd(v){return hasVal(v)?Math.round(v):null}
 
 // ── State ──────────────────────────────────────────────────────────────────
 let wx=null, loc={lat:null,lon:null,elev:0,isAlpine:false,isHighAlpine:false};
@@ -526,10 +500,7 @@ let radarInited=false;
 // Satellite
 let satFrames=[],satLayers=[],satIdx=0;
 // Map layers
-let currentMapLayer='radar'; // radar | satellite | temp
-let tempLayer=null;
-// Lightning
-let lightningOn=false, lightningMarkers=[], lightningTimer=null;
+let currentMapLayer='radar'; // radar | satellite
 // Search
 let searchTimer=null;
 
@@ -606,50 +577,27 @@ async function loadForCoords(lat,lon,isGPS=false){
 
   let wxData;
   if(inCH){
-    // Schweiz: ICON-CH1 (1km, 33h) + ICON-CH2 (2.1km, 5 Tage)
-    // Korrekte Open-Meteo URL: /v1/forecast mit models=meteoswiss_icon_ch1/ch2
+    // Schweiz: ICON-CH2 (2.1km, 5 Tage) — ein Modell, keine Merge-Fehler,
+    // deutlich präziser als globale Modelle, deckt die ganze Vorhersage ab
     try {
-      const [r1, r2] = await Promise.all([
-        fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({
-          ...commonParams, models:'meteoswiss_icon_ch1', forecast_days:2
-        })}`),
-        fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({
-          ...commonParams, models:'meteoswiss_icon_ch2', forecast_days:8
-        })}`)
-      ]);
-
-      if(!r1.ok || !r2.ok) throw new Error('MeteoSwiss nicht verfügbar');
-      const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
-      if(d1.error || d2.error) throw new Error(d1.reason || d2.reason || 'MeteoSwiss Fehler');
-
-      // CH1 für aktuell + erste 33h, CH2 für Tagesvorhersage und Rest
-      wxData = d2; // Basis: CH2 (5 Tage)
-      wxData.current = d1.current; // Aktuell von CH1 (präziser, 1km)
-      // Stundenwerte: CH1 für die ersten 33h, danach CH2
-      const ch1Hours = d1.hourly.time.length;
-      Object.keys(d1.hourly).forEach(key=>{
-        if(d2.hourly[key] && Array.isArray(d1.hourly[key])){
-          wxData.hourly[key] = [
-            ...d1.hourly[key],
-            ...d2.hourly[key].slice(ch1Hours)
-          ];
-        }
-      });
-      wxData.hourly.time = [
-        ...d1.hourly.time,
-        ...d2.hourly.time.slice(ch1Hours)
-      ];
-      wxData._model = 'MeteoSwiss ICON-CH1 (1km) + ICON-CH2 (2.1km)';
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({
+        ...commonParams, models:'meteoswiss_icon_ch2', forecast_days:7
+      })}`);
+      if(!r.ok) throw new Error('MeteoSwiss HTTP '+r.status);
+      const d = await r.json();
+      if(d.error) throw new Error(d.reason||'MeteoSwiss Fehler');
+      // Sanity-Check: hat das Modell brauchbare Kerndaten?
+      if(!d.current || !hasVal(d.current.temperature_2m)) throw new Error('Keine Kerndaten');
+      wxData = d;
+      wxData._model = 'MeteoSwiss ICON-CH2 (2.1km)';
     } catch(e) {
-      // Fallback auf best_match wenn MeteoSwiss nicht verfügbar
-      console.warn('MeteoSwiss ICON fallback:', e.message);
+      console.warn('MeteoSwiss Fallback:', e.message);
       const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({...commonParams, forecast_days:8})}`);
       if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
       wxData = await wr.json();
       wxData._model = 'Open-Meteo best_match (Fallback)';
     }
   } else {
-    // Welt: best_match
     const wr = await fetch(`https://api.open-meteo.com/v1/forecast?${new URLSearchParams({...commonParams, forecast_days:8})}`);
     if(!wr.ok) throw new Error('Wetterdienst nicht erreichbar.');
     wxData = await wr.json();
@@ -661,7 +609,7 @@ async function loadForCoords(lat,lon,isGPS=false){
   loc={lat,lon,elev,country,isAlpine:elev>800,isHighAlpine:elev>1500,inCH};
 
   document.getElementById('locName').textContent=name+(loc.isHighAlpine?' 🏔':loc.isAlpine?' ⛰':'')+(isGPS?' 📍':'');
-  const modelLabel = wx._model?.includes('MeteoSwiss') ? '🇨🇭 ICON-CH1/2'
+  const modelLabel = wx._model?.includes('MeteoSwiss') ? '🇨🇭 ICON-CH2'
                    : wx._model?.includes('Fallback')   ? '⚠ Fallback'
                    : 'Open-Meteo';
   document.getElementById('locSub').textContent=
@@ -760,21 +708,22 @@ function renderNow(){
   const winter=isWinter();
 
   document.getElementById('heroIcon').textContent=icon;
-  document.getElementById('heroTemp').textContent=Math.round(c.temperature_2m);
+  document.getElementById('heroTemp').textContent=rnd(c.temperature_2m)??'–';
   document.getElementById('heroDesc').textContent=desc;
-  document.getElementById('heroFeels').textContent=`Gefühlt ${Math.round(c.apparent_temperature)}°C`;
+  document.getElementById('heroFeels').textContent=hasVal(c.apparent_temperature)?`Gefühlt ${Math.round(c.apparent_temperature)}°C`:'';
 
-  let mmHtml=`<span class="hi">↑ ${Math.round(d.temperature_2m_max[0])}°</span>
-              <span class="lo">↓ ${Math.round(d.temperature_2m_min[0])}°</span>`;
+  let mmHtml='';
+  if(hasVal(d.temperature_2m_max[0])) mmHtml+=`<span class="hi">↑ ${Math.round(d.temperature_2m_max[0])}°</span>`;
+  if(hasVal(d.temperature_2m_min[0])) mmHtml+=`<span class="lo">↓ ${Math.round(d.temperature_2m_min[0])}°</span>`;
   if((winter||loc.isAlpine)&&snowNow>0) mmHtml+=`<span class="sn">❄ ${snowNow.toFixed(0)}cm</span>`;
   document.getElementById('minmax').innerHTML=mmHtml;
 
-  document.getElementById('compassArrow').setAttribute('transform',`rotate(${c.wind_direction_10m},31,31)`);
-  document.getElementById('compassDir').textContent=`${wdir(c.wind_direction_10m)} ${c.wind_direction_10m}°`;
-  document.getElementById('compassSpd').textContent=`${Math.round(c.wind_speed_10m)} km/h`;
-  document.getElementById('statHum').textContent=`${c.relative_humidity_2m}%`;
-  document.getElementById('statWind').textContent=`${Math.round(c.wind_speed_10m)} km/h`;
-  document.getElementById('statPres').textContent=`${Math.round(c.surface_pressure)} hPa`;
+  document.getElementById('compassArrow').setAttribute('transform',`rotate(${num(c.wind_direction_10m,0)},31,31)`);
+  document.getElementById('compassDir').textContent=hasVal(c.wind_direction_10m)?`${wdir(c.wind_direction_10m)} ${c.wind_direction_10m}°`:'–';
+  document.getElementById('compassSpd').textContent=hasVal(c.wind_speed_10m)?`${Math.round(c.wind_speed_10m)} km/h`:'–';
+  document.getElementById('statHum').textContent=hasVal(c.relative_humidity_2m)?`${c.relative_humidity_2m}%`:'–';
+  document.getElementById('statWind').textContent=hasVal(c.wind_speed_10m)?`${Math.round(c.wind_speed_10m)} km/h`:'–';
+  document.getElementById('statPres').textContent=hasVal(c.surface_pressure)?`${Math.round(c.surface_pressure)} hPa`:'–';
 
   let alerts='';
   if((h.cape?.[nowIdx]||0)>100) alerts+=`<div class="alert alert-cape">⛈ Gewitterpotenzial — CAPE ${Math.round(h.cape[nowIdx])} J/kg</div>`;
@@ -796,12 +745,14 @@ function renderNow(){
     const[hIcon]=wmo(h.weather_code[i]);
     const isSnowH=(h.snowfall?.[i]||0)>0;
     const mm=h.precipitation?.[i]||0;
+    const ht=rnd(h.temperature_2m[i]);
+    const pp=num(h.precipitation_probability[i]);
     track.innerHTML+=`
       <div class="hour-card ${isNow?'now':''}">
         <div class="h-time">${isNow?'Jetzt':fmtHHMM(h.time[i])}</div>
         <div class="h-icon">${hIcon}</div>
-        <div class="h-temp">${Math.round(h.temperature_2m[i])}°</div>
-        <div class="h-rain">${h.precipitation_probability[i]}%</div>
+        <div class="h-temp">${ht??'–'}°</div>
+        <div class="h-rain">${hasVal(pp)?pp+'%':'–'}</div>
         ${mm>0?`<div class="h-mm" style="color:${isSnowH?'var(--snow)':'var(--rain)'}">${mm.toFixed(1)}mm</div>`:''}
       </div>`;
   }
@@ -824,20 +775,22 @@ function renderNow(){
       </div>`;
   }
 
-  // chips
+  // chips — nur anzeigen wenn Daten vorhanden (MeteoSwiss liefert nicht alle Felder)
   const sunrise=new Date(d.sunrise[0]+'Z'),sunset=new Date(d.sunset[0]+'Z');
-  const dewDiff=c.temperature_2m-c.dew_point_2m;
   const chips=[
     {icon:'🌅',label:'Sonnenaufgang',val:sunrise.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})},
     {icon:'🌇',label:'Sonnenuntergang',val:sunset.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})},
-    {icon:'💧',label:'Taupunkt',val:`${Math.round(c.dew_point_2m)}°C`,sub:dewDiff<3?'⚠ Nebelgefahr':'OK'},
-    {icon:'☁️',label:'Bewölkung',val:`${c.cloud_cover}%`},
-    {icon:'💨',label:'Böen',val:`${Math.round(c.wind_gusts_10m)} km/h`,sub:`Bft ${beaufort(c.wind_gusts_10m)}`},
-    {icon:'🌫️',label:'Sichtweite',val:`${(c.visibility/1000).toFixed(1)} km`,
-     sub:(c.visibility/1000)<1?'Sehr schlecht':(c.visibility/1000)<5?'Eingeschränkt':'Gut'},
-    {icon:'🌡',label:'Luftdruck',val:`${Math.round(c.surface_pressure)} hPa`,
-     sub:c.surface_pressure>1020?'Hochdruck':c.surface_pressure<1000?'Tiefdruck':'Normal'},
   ];
+  if(hasVal(c.dew_point_2m)){
+    const dewDiff=c.temperature_2m-c.dew_point_2m;
+    chips.push({icon:'💧',label:'Taupunkt',val:`${Math.round(c.dew_point_2m)}°C`,sub:dewDiff<3?'⚠ Nebelgefahr':'OK'});
+  }
+  if(hasVal(c.cloud_cover)) chips.push({icon:'☁️',label:'Bewölkung',val:`${c.cloud_cover}%`});
+  if(hasVal(c.wind_gusts_10m)) chips.push({icon:'💨',label:'Böen',val:`${Math.round(c.wind_gusts_10m)} km/h`,sub:`Bft ${beaufort(c.wind_gusts_10m)}`});
+  if(hasVal(c.visibility)) chips.push({icon:'🌫️',label:'Sichtweite',val:`${(c.visibility/1000).toFixed(1)} km`,
+     sub:(c.visibility/1000)<1?'Sehr schlecht':(c.visibility/1000)<5?'Eingeschränkt':'Gut'});
+  if(hasVal(c.surface_pressure)) chips.push({icon:'🌡',label:'Luftdruck',val:`${Math.round(c.surface_pressure)} hPa`,
+     sub:c.surface_pressure>1020?'Hochdruck':c.surface_pressure<1000?'Tiefdruck':'Normal'});
   let chipsHtml=chips.map(ch=>`
     <div class="chip">
       <div class="chip-icon">${ch.icon}</div>
@@ -845,7 +798,8 @@ function renderNow(){
       <div class="chip-lbl">${ch.label}</div>
       ${ch.sub?`<div class="chip-sub">${ch.sub}</div>`:''}
     </div>`).join('');
-  chipsHtml+=`
+  if(hasVal(c.uv_index)){
+    chipsHtml+=`
     <div class="chip">
       <div class="chip-icon">☀️</div>
       <div class="chip-val" style="color:${uvColor(uv)}">${uv}</div>
@@ -853,8 +807,9 @@ function renderNow(){
       <div class="uv-bar"><div class="uv-fill" style="width:${Math.min(uv/12*100,100)}%"></div></div>
       <div class="chip-sub">${uvLabel(uv)}</div>
     </div>`;
-  if(!winter){
-    const cape=Math.round(h.cape?.[nowIdx]||0);
+  }
+  if(!winter && hasVal(h.cape?.[nowIdx])){
+    const cape=Math.round(h.cape[nowIdx]);
     chipsHtml+=`
       <div class="chip">
         <div class="chip-icon">⛈</div>
@@ -887,9 +842,9 @@ function renderNow(){
     chipsHtml+=`
       <div class="chip wide" style="border-color:${isFallback?'rgba(255,176,77,.25)':'rgba(77,184,255,.25)'};background:${isFallback?'rgba(255,176,77,.06)':'rgba(77,184,255,.06)'}">
         <div class="chip-icon">${isFallback?'⚠️':'🇨🇭'}</div>
-        <div class="chip-val" style="font-size:13px;line-height:1.3">${isFallback?'Open-Meteo (Fallback)':'ICON-CH1 · ICON-CH2'}</div>
-        <div class="chip-lbl">${isFallback?'MeteoSwiss nicht verfügbar':'MeteoSwiss Modell aktiv'}</div>
-        <div class="chip-sub">${isFallback?'Best-match Modell wird verwendet':'1 km / 2.1 km Auflösung · alle 3–6h · via Open-Meteo'}</div>
+        <div class="chip-val" style="font-size:13px;line-height:1.3">${isFallback?'Open-Meteo (Fallback)':'MeteoSwiss ICON-CH2'}</div>
+        <div class="chip-lbl">${isFallback?'MeteoSwiss nicht verfügbar':'Schweizer Modell aktiv'}</div>
+        <div class="chip-sub">${isFallback?'Best-match Modell wird verwendet':'2.1 km Auflösung · alle 6h aktualisiert · via Open-Meteo'}</div>
       </div>`;
   }
   document.getElementById('chipsGrid').innerHTML=chipsHtml;
@@ -911,17 +866,18 @@ function renderWeek(){
     return `<span class="spark-lbl">${i===0?'Heu':DAYS[dt.getDay()]}</span>`;
   }).join('');
 
-  const rMin=Math.min(...d.temperature_2m_min.slice(0,7));
-  const rMax=Math.max(...d.temperature_2m_max.slice(0,7));
+  const nDays=Math.min(7, d.time.length);
+  const rMin=Math.min(...d.temperature_2m_min.slice(0,nDays).filter(hasVal));
+  const rMax=Math.max(...d.temperature_2m_max.slice(0,nDays).filter(hasVal));
   const daily=document.getElementById('dailyCard');
   daily.innerHTML='';
-  for(let i=0;i<7;i++){
+  for(let i=0;i<nDays;i++){
     const dt=new Date(d.time[i]+'T12:00:00');
     const[icon]=wmo(d.weather_code[i]);
-    const hi=Math.round(d.temperature_2m_max[i]),lo=Math.round(d.temperature_2m_min[i]);
+    const hi=rnd(d.temperature_2m_max[i]),lo=rnd(d.temperature_2m_min[i]);
     const rain=d.precipitation_probability_max[i]||0;
     const mm=d.precipitation_sum?.[i]||0,snow=d.snowfall_sum?.[i]||0;
-    const pct=rMax>rMin?((hi-rMin)/(rMax-rMin)*100):50;
+    const pct=(hasVal(hi)&&rMax>rMin)?((hi-rMin)/(rMax-rMin)*100):50;
     daily.innerHTML+=`
       <div class="day-row">
         <div class="day-name" style="color:${i===0?'var(--accent)':'var(--text)'}">${i===0?'Heute':DAYS[dt.getDay()]}</div>
@@ -931,17 +887,18 @@ function renderWeek(){
           ${mm>0?`<div class="day-rain-mm" style="color:${snow>0?'var(--snow)':'var(--rain)'}">${mm.toFixed(1)}mm</div>`:''}
         </div>
         <div class="day-bar-wrap"><div class="day-bar-fill" style="width:${pct}%"></div></div>
-        <div class="day-temps"><span class="day-lo">${lo}°</span><span class="day-hi">${hi}°</span></div>
+        <div class="day-temps"><span class="day-lo">${lo??'–'}°</span><span class="day-hi">${hi??'–'}°</span></div>
       </div>`;
   }
 
   const snowSec=document.getElementById('snowSection');
   if(hasSnow){
     snowSec.style.display='block';
-    const maxDepth=Math.max(...(d.snow_depth_max||[0]).slice(0,7).map(v=>v*100),1);
+    const nD=Math.min(7, d.time.length);
+    const maxDepth=Math.max(...(d.snow_depth_max||[0]).slice(0,nD).map(v=>(v||0)*100),1);
     const snowBars=document.getElementById('snowBars');
     snowBars.innerHTML='';
-    for(let i=0;i<7;i++){
+    for(let i=0;i<nD;i++){
       const dt=new Date(d.time[i]+'T12:00:00');
       const depth=(d.snow_depth_max?.[i]||0)*100,sf=d.snowfall_sum?.[i]||0;
       const ht=Math.max((depth/maxDepth)*54,2);
@@ -1079,7 +1036,6 @@ function initRadar(){
 }
 
 let radarRefreshTimer = null;
-let dwdRadarLayer = null; // unused, kept for compat
 
 async function loadRadarData(){
   try {
@@ -1135,8 +1091,6 @@ async function loadRadarData(){
   } catch(e) {
     console.warn('Radar Fehler:', e.message);
     document.getElementById('radarSub').textContent = 'Fehler – ↻ nochmal tippen';
-    // MeteoSwiss WMS als Fallback für CH
-    if(isInSwitzerland(loc.lat||0, loc.lon||0)) addMeteoSwissRadar();
   }
 }
 
@@ -1147,52 +1101,12 @@ function startRadarAutoRefresh(){
   }, 5 * 60 * 1000);
 }
 
-// MeteoSwiss WMS radar layer (Switzerland only, 1km resolution, updates every 2.5min)
-let msRadarLayer = null;
-let msRadarTimer = null;
-
-function isInSwitzerland(lat, lon) {
-  if(loc && loc.inCH !== undefined) return loc.inCH;
-  return lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6;
-}
-
-function addMeteoSwissRadar() {
-  if(!radarMap) return;
-  // MeteoSwiss WMS via geo.admin.ch — free public service, 1km resolution
-  // Layer: ch.meteoschweiz.radar-niederschlag-combiniert (CombiPrecip)
-  // Updates every 5 min, covers Switzerland + surroundings
-  if(msRadarLayer) { radarMap.removeLayer(msRadarLayer); msRadarLayer=null; }
-  const ts = new Date().toISOString(); // cache-bust
-  msRadarLayer = L.tileLayer.wms('https://wms.geo.admin.ch/', {
-    layers: 'ch.meteoschweiz.radar-niederschlag-combiniert',
-    format: 'image/png',
-    transparent: true,
-    version: '1.3.0',
-    crs: L.CRS.EPSG3857,
-    opacity: 0.8,
-    zIndex: 15,
-    attribution: '© MeteoSwiss'
-  });
-  msRadarLayer.addTo(radarMap);
-}
-
-function removeMeteoSwissRadar() {
-  if(msRadarLayer) { radarMap.removeLayer(msRadarLayer); msRadarLayer=null; }
-  if(msRadarTimer) { clearInterval(msRadarTimer); msRadarTimer=null; }
-}
-
 function updateRadarSourceBadge() {
-  const inCH = isInSwitzerland(loc.lat||0, loc.lon||0);
   const badge = document.getElementById('radarSourceBadge');
   if(badge) {
-    badge.textContent = inCH ? '🇨🇭 MeteoSwiss + RainViewer' : 'RainViewer';
-    badge.style.color = inCH ? '#4dff91' : 'var(--faint)';
+    badge.textContent = 'RainViewer';
+    badge.style.color = 'var(--faint)';
   }
-}
-
-function clearWeatherLayers(){
-  [...radarLayers,...satLayers].forEach(l=>{if(radarMap.hasLayer(l))radarMap.removeLayer(l)});
-  if(tempLayer){radarMap.removeLayer(tempLayer);tempLayer=null}
 }
 
 function showRadarFrame(idx){
@@ -1203,10 +1117,6 @@ function showRadarFrame(idx){
     } catch(e){}
   });
   satLayers.forEach(l=>{ try{ if(radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
-  if(tempLayer){ try{ radarMap.removeLayer(tempLayer); tempLayer=null; }catch(e){} }
-
-  if(isInSwitzerland(loc.lat||0, loc.lon||0)) addMeteoSwissRadar();
-  else removeMeteoSwissRadar();
 
   if(radarFrames[idx]){
     const dt  = new Date(radarFrames[idx].time*1000);
@@ -1220,227 +1130,68 @@ function showRadarFrame(idx){
 
 function showSatFrame(idx){
   satLayers.forEach((l,i)=>{
-    if(i===idx){if(!radarMap.hasLayer(l))l.addTo(radarMap)}
-    else{if(radarMap.hasLayer(l))radarMap.removeLayer(l)}
+    try {
+      if(i===idx){ if(!radarMap.hasLayer(l)) l.addTo(radarMap); }
+      else        { if(radarMap.hasLayer(l))  radarMap.removeLayer(l); }
+    } catch(e){}
   });
-  radarLayers.forEach(l=>{if(radarMap.hasLayer(l))radarMap.removeLayer(l)});
-  if(tempLayer){radarMap.removeLayer(tempLayer);tempLayer=null}
+  radarLayers.forEach(l=>{ try{ if(radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
   if(satFrames[idx]){
     const dt=new Date(satFrames[idx].time*1000);
     document.getElementById('radarTs').textContent=dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})+' (IR-Sat)';
   }
 }
 
-function showTempLayer(){
-  radarLayers.forEach(l=>{if(radarMap.hasLayer(l))radarMap.removeLayer(l)});
-  satLayers.forEach(l=>{if(radarMap.hasLayer(l))radarMap.removeLayer(l)});
-  if(!tempLayer){
-    // Open-Meteo temperature tiles via a WMS-style approach using openweathermap free tiles
-    // We use a coloured temperature overlay from open-source tile provider
-    tempLayer=L.tileLayer(
-      'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02',
-      {opacity:.7,maxZoom:14,attribution:'OpenWeatherMap'});
-    tempLayer.addTo(radarMap);
-  }
-  document.getElementById('radarTs').textContent='Temperatur 2m';
-}
-
 function setMapLayer(layer){
-  if(radarPlaying){clearInterval(radarTimer);radarPlaying=false;
+  if(radarPlaying){ clearInterval(radarTimer); radarPlaying=false;
     document.getElementById('playBtn').textContent='▶ Play';
-    document.getElementById('playBtn').classList.remove('active')}
+    document.getElementById('playBtn').classList.remove('active'); }
   currentMapLayer=layer;
-  ['radar','sat','temp'].forEach(id=>{
+  ['radar','sat'].forEach(id=>{
     const btn=document.getElementById('btn'+id.charAt(0).toUpperCase()+id.slice(1));
-    if(btn) btn.classList.remove('active','active-warm');
+    if(btn) btn.classList.remove('active');
   });
-  document.getElementById('legendRadar').style.display=layer==='radar'?'block':'none';
-  document.getElementById('legendTemp').style.display=layer==='temp'?'block':'none';
-
-  const inCH = isInSwitzerland(loc.lat||0, loc.lon||0);
-  const chInfo = document.getElementById('chRadarInfo');
+  document.getElementById('legendRadar').style.display = layer==='radar' ? 'block' : 'none';
 
   if(layer==='radar'){
     document.getElementById('btnRadar').classList.add('active');
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('playBtn').style.opacity = '1';
-    document.getElementById('playBtn').title = '';
     satLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
-    if(tempLayer){ try{ radarMap&&radarMap.removeLayer(tempLayer); tempLayer=null; }catch(e){} }
     if(radarLayers.length) showRadarFrame(radarIdx);
     else loadRadarData();
-    if(chInfo) chInfo.style.display = inCH ? 'block' : 'none';
   }else if(layer==='satellite'){
     document.getElementById('btnSat').classList.add('active');
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('playBtn').style.opacity = '1';
-    document.getElementById('playBtn').title = '';
     radarLayers.forEach(l=>{ try{ if(radarMap&&radarMap.hasLayer(l)) radarMap.removeLayer(l); }catch(e){} });
-    removeMeteoSwissRadar();
-    if(chInfo) chInfo.style.display='none';
     if(satLayers.length) showSatFrame(satIdx);
-    else{ document.getElementById('radarTs').textContent='Keine Sat-Daten' }
-  }else if(layer==='temp'){
-    document.getElementById('btnTemp').classList.add('active-warm');
-    removeMeteoSwissRadar();
-    if(chInfo) chInfo.style.display='none';
-    showTempLayer();
+    else { document.getElementById('radarTs').textContent='Keine Sat-Daten'; }
   }
   updateRadarSourceBadge();
 }
 
 function togglePlay(){
   const btn=document.getElementById('playBtn');
-  if(currentMapLayer==='temp')return;
   if(radarPlaying){
-    clearInterval(radarTimer);radarPlaying=false;
-    btn.textContent='▶ Play';btn.classList.remove('active');
+    clearInterval(radarTimer); radarPlaying=false;
+    btn.textContent='▶ Play'; btn.classList.remove('active');
   }else{
-    radarPlaying=true;btn.textContent='⏸ Stop';btn.classList.add('active');
-    const frames=currentMapLayer==='radar'?radarLayers:satLayers;
-    const showFn=currentMapLayer==='radar'?showRadarFrame:showSatFrame;
-    const idxRef=currentMapLayer==='radar'?()=>radarIdx:()=>satIdx;
-    const setIdx=currentMapLayer==='radar'?(v)=>{radarIdx=v}:(v)=>{satIdx=v};
+    radarPlaying=true; btn.textContent='⏸ Stop'; btn.classList.add('active');
+    const isRadar = currentMapLayer==='radar';
+    const frames  = isRadar ? radarLayers : satLayers;
+    const showFn  = isRadar ? showRadarFrame : showSatFrame;
+    if(!frames.length){ radarPlaying=false; btn.textContent='▶ Play'; btn.classList.remove('active'); return; }
     radarTimer=setInterval(()=>{
-      const next=(idxRef()+1)%frames.length;
-      setIdx(next);showFn(next);
+      if(isRadar){ radarIdx=(radarIdx+1)%radarLayers.length; showFn(radarIdx); }
+      else       { satIdx=(satIdx+1)%satLayers.length;     showFn(satIdx);  }
     },500);
   }
 }
+
 function radarPrev(){
-  if(currentMapLayer==='radar'){radarIdx=(radarIdx-1+radarLayers.length)%radarLayers.length;showRadarFrame(radarIdx)}
-  else if(currentMapLayer==='satellite'){satIdx=(satIdx-1+satLayers.length)%satLayers.length;showSatFrame(satIdx)}
+  if(currentMapLayer==='radar'){ radarIdx=(radarIdx-1+radarLayers.length)%radarLayers.length; showRadarFrame(radarIdx); }
+  else { satIdx=(satIdx-1+satLayers.length)%satLayers.length; showSatFrame(satIdx); }
 }
 function radarNext(){
-  if(currentMapLayer==='radar'){radarIdx=(radarIdx+1)%radarLayers.length;showRadarFrame(radarIdx)}
-  else if(currentMapLayer==='satellite'){satIdx=(satIdx+1)%satLayers.length;showSatFrame(satIdx)}
-}
-function radarJumpLatest(){
-  // Stop animation and jump to newest frame
-  if(radarPlaying){ clearInterval(radarTimer); radarPlaying=false;
-    document.getElementById('playBtn').textContent='▶ Play';
-    document.getElementById('playBtn').classList.remove('active'); }
-  if(currentMapLayer==='radar'){ radarIdx=radarLayers.length-1; showRadarFrame(radarIdx); }
-  else if(currentMapLayer==='satellite'){ satIdx=satLayers.length-1; showSatFrame(satIdx); }
-}
-
-// ── LIGHTNING ──────────────────────────────────────────────────────────────
-function toggleLightning(){
-  lightningOn=!lightningOn;
-  const btn=document.getElementById('btnLightning');
-  const info=document.getElementById('lightningInfo');
-  btn.classList.toggle('active',lightningOn);
-  info.style.display=lightningOn?'block':'none';
-  if(lightningOn){
-    loadLightning();
-    lightningTimer=setInterval(loadLightning,120000);
-  }else{
-    clearInterval(lightningTimer);
-    lightningMarkers.forEach(m=>radarMap.removeLayer(m));
-    lightningMarkers=[];
-    document.getElementById('lightningCount').textContent='–';
-  }
-}
-
-async function loadLightning(){
-  if(!radarMap)return;
-  try{
-    // Use Blitzortung archive for last 10 minutes (public JSON)
-    const now=new Date();
-    const min10=Math.floor(now.getMinutes()/10)*10;
-    const dateStr=`${now.getUTCFullYear()}/${String(now.getUTCMonth()+1).padStart(2,'0')}/${String(now.getUTCDate()).padStart(2,'0')}`;
-    const hourStr=String(now.getUTCHours()).padStart(2,'0');
-    const minStr=String(Math.floor(now.getUTCMinutes()/10)*10).padStart(2,'0');
-
-    // Try Blitzortung public JSON archive (Europe = container 1)
-    const url=`https://data.blitzortung.org/Data_1/Protected/Strokes/${dateStr}/${hourStr}/${minStr}.json`;
-    const res=await fetch(url,{mode:'cors'});
-
-    if(!res.ok) throw new Error('No data');
-    const text=await res.text();
-    const lines=text.trim().split('\n').filter(Boolean);
-    const strikes=[];
-    for(const line of lines){
-      try{
-        const s=JSON.parse(line);
-        if(s.lat&&s.lon) strikes.push({lat:s.lat/1e7,lon:s.lon/1e7,time:s.time});
-      }catch{}
-    }
-    renderLightning(strikes);
-  }catch{
-    // Fallback: use a CORS-friendly lightning data endpoint
-    try{
-      await loadLightningFallback();
-    }catch{
-      document.getElementById('lightningCount').textContent='Keine Blitzdaten verfügbar (CORS)';
-    }
-  }
-}
-
-async function loadLightningFallback(){
-  // Fallback: simulate with Open-Meteo lightning if CAPE > threshold
-  // and show info based on current weather data
-  const strikes=[];
-  if(wx){
-    const h=wx.hourly;
-    // Find recent hours with high CAPE and thunderstorm codes
-    for(let i=Math.max(0,nowIdx-2);i<Math.min(nowIdx+3,h.time.length);i++){
-      const cape=h.cape?.[i]||0;
-      const code=h.weather_code?.[i]||0;
-      if(cape>200||[95,96,99].includes(code)){
-        // Add simulated strike near location
-        if(loc.lat){
-          strikes.push({
-            lat:loc.lat+(Math.random()-0.5)*0.5,
-            lon:loc.lon+(Math.random()-0.5)*0.5,
-            time:Date.now()
-          });
-        }
-      }
-    }
-  }
-  renderLightning(strikes);
-  if(strikes.length===0){
-    document.getElementById('lightningCount').textContent='Keine Blitzaktivität erkannt';
-  }
-}
-
-function renderLightning(strikes){
-  // Remove old markers
-  lightningMarkers.forEach(m=>radarMap.removeLayer(m));
-  lightningMarkers=[];
-
-  const now=Date.now();
-  const visible=strikes.filter(s=>(now-s.time)<3600000); // last 60 min
-
-  visible.forEach(s=>{
-    const age=(now-s.time)/60000; // minutes
-    const opacity=Math.max(0.2,1-age/60);
-    const size=age<5?14:age<20?10:7;
-    const icon=L.divIcon({
-      html:`<div style="font-size:${size}px;opacity:${opacity};text-shadow:0 0 6px #fff700,0 0 12px #ff8800;line-height:1">⚡</div>`,
-      className:'',iconAnchor:[size/2,size/2]
-    });
-    const m=L.marker([s.lat,s.lon],{icon}).addTo(radarMap);
-    m.bindPopup(`⚡ Blitz<br>${age<1?'Gerade eben':Math.round(age)+' Min. her'}`);
-    lightningMarkers.push(m);
-  });
-
-  document.getElementById('lightningCount').textContent=
-    `${visible.length} Einschläge · Letzter: ${
-      visible.length>0?(() => {
-        const age=(now-Math.max(...visible.map(s=>s.time)))/60000;
-        return age<1?'Gerade eben':Math.round(age)+' Min. her';
-      })():'–'
-    }`;
-
-  // Flash effect for recent strikes
-  if(visible.some(s=>(now-s.time)<60000)){
-    const flash=document.createElement('div');
-    flash.className='lightning-flash';
-    document.body.appendChild(flash);
-    setTimeout(()=>flash.remove(),800);
-  }
+  if(currentMapLayer==='radar'){ radarIdx=(radarIdx+1)%radarLayers.length; showRadarFrame(radarIdx); }
+  else { satIdx=(satIdx+1)%satLayers.length; showSatFrame(satIdx); }
 }
 </script>
 </body>

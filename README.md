@@ -1,6 +1,8 @@
-# 🌤 Wetter App — v3.5
+# 🌤 Wetter App — v4.1
 
 Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation, keine API-Keys nötig. Einfach auf GitHub Pages hosten und im iPhone-Browser öffnen.
+
+> **v4.1 — Stabilitäts-Release:** Robuste Behandlung fehlender Daten, vereinfachtes Schweiz-Modell, kein „NaN" mehr in der Anzeige.
 
 ---
 
@@ -17,7 +19,7 @@ Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation,
 - Stündliche Vorhersage (scrollbar, 25h) mit mm-Angaben
 - Niederschlagsbalken mit mm-Werten (24h)
 - Detailkarten: Taupunkt, UV-Index, Bewölkung, Böen (Bft), Sichtweite, Luftdruck, Schneefall
-- Infokarte „MeteoSwiss Modell aktiv" bei Schweizer Standort
+- Bei Schweizer Standort: MeteoSwiss ICON-CH1/CH2 Modell (1km Auflösung)
 
 ### 7-Tage-Tab
 - Temperaturkurven Hoch/Tief als Liniengrafik
@@ -26,16 +28,11 @@ Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation,
 - Wind- & Böenkurve für die Woche
 
 ### Radar-Tab
-- 🌧 **Regenradar** — animiert, 14 Frames inkl. Nowcast-Prognose
+- 🌧 **Regenradar** — animiert, inkl. Kurzprognose (Nowcast)
 - 🛰 **Satellit** — Infrarot-Satellitenbild (animierbar)
-- 🌡 **Temperatur** — Heatmap über Europa
-- ⚡ **Blitze** — Live-Blitzortung, alle 2 Min. aktualisiert
-- 🇨🇭 **MeteoSwiss-Radar** — automatisch aktiv bei Schweizer Standort (1 km Auflösung)
-- 📊 **Niederschlagsprognose 24h** — stündliche Balken + Liniengrafik + Zusammenfassung
-- **Auto-Refresh** — Radar-Daten werden alle 5 Min. automatisch aktualisiert
-- **⏭ Neuester Frame** — springt direkt zum aktuellsten Zeitpunkt
-- **↻ Manueller Refresh** — sofortige Aktualisierung auf Knopfdruck
-- Zeitstempel zeigt Stand der Daten an (z.B. „14 Frames · Stand 18:45")
+- Play / Vor / Zurück / Aktualisieren
+- 📊 **Niederschlagsprognose 24h** — Balken + Liniengrafik + Zusammenfassung
+- Radar-Intensitäts-Legende
 
 ### Allgemein
 - 🔍 **Ortssuche** — beliebigen Ort weltweit suchen
@@ -43,89 +40,72 @@ Eine mobile Wetter-App als einzelne HTML-Datei. Kein Server, keine Installation,
 - 📍 GPS-Standorterkennung mit Höhenangabe (m ü.M.)
 - Alpiner Modus: Sonderdaten ab 800m, Hochalpin ab 1500m
 - Saisonal angepasste Daten (Schnee nur Herbst/Winter)
-- Versionsnummer im Header
 
 ---
 
 ## 🇨🇭 MeteoSwiss — Schweizer Standort
 
-Bei Standorten innerhalb der Schweiz wird automatisch auf die **MeteoSwiss ICON-CH Modelle** umgeschaltet:
+Bei Standorten innerhalb der Schweiz nutzt die App automatisch die **MeteoSwiss ICON-CH Modelle** (über Open-Meteo):
 
 | | Ausserhalb CH | In der Schweiz |
 |---|---|---|
-| **Wetterdaten** | Open-Meteo best_match | MeteoSwiss ICON-CH1 + ICON-CH2 |
-| **Auflösung** | ~5–10 km | **1 km (CH1) / 2.1 km (CH2)** |
-| **Kurzfrist (0–33h)** | Bestes verfügbares Modell | ICON-CH1-EPS (1 km) |
-| **Mittelfrist (2–5 Tage)** | Bestes verfügbares Modell | ICON-CH2-EPS (2.1 km) |
-| **Aktualisierung** | je nach Modell | alle 3h (CH1) / 6h (CH2) |
-| **Radar** | RainViewer | RainViewer + MeteoSwiss CombiPrecip |
-| **Radar-Auflösung** | ~5–10 km | **1 km** |
+| **Modell** | Open-Meteo best_match | MeteoSwiss ICON-CH2 |
+| **Auflösung** | ~5–10 km | **2.1 km** |
+| **Vorhersage** | bis 8 Tage | bis 7 Tage (ICON-CH2-EPS) |
 
-Der aktive Modelname wird im Header (`🇨🇭 ICON-CH1/2`) und als Chip im Jetzt-Tab angezeigt.
+**Warum nur noch ICON-CH2 (statt CH1+CH2)?** Das Kombinieren zweier Modelle erzeugte gelegentlich Inkonsistenzen an der Übergangsstelle. Ein einzelnes Modell (ICON-CH2, 2.1 km, volle 5–7 Tage) ist zuverlässiger und immer noch deutlich präziser als globale Modelle.
 
-> **Hinweis:** MeteoSwiss Radardaten sind aktuell statisch (kein animierter Forecast). Animierte Zeitreihen-API geplant für Ende 2026.
+Fällt MeteoSwiss aus oder liefert keine Kerndaten, schaltet die App automatisch auf `best_match` zurück (sichtbar als ⚠ Fallback im Header).
+
+---
+
+## 🗑 In v4.0 entfernt (funktionierten nicht zuverlässig)
+
+| Entfernt | Grund |
+|----------|-------|
+| **Blitze (Blitzortung.org)** | CORS-Blockierung im Browser — funktionierte nie wirklich, nur simulierter Fallback |
+| **Temperatur-Heatmap** | Benötigte fremden OpenWeatherMap-Key, der jederzeit gesperrt werden kann |
+| **MeteoSwiss Radar-WMS-Overlay** | `wms.geo.admin.ch` lud unzuverlässig / langsam, Layer-Name veraltet |
+
+Das **MeteoSwiss-Wettermodell** (ICON-CH über Open-Meteo) bleibt — das funktioniert sauber und ist etwas anderes als der entfernte Radar-WMS.
 
 ---
 
 ## 📊 Niederschlagsprognose (Radar-Tab)
 
-Direkt unter der Radarkarte zeigt die App eine **standortgenaue 24h-Regenprognose**:
+Standortgenaue 24h-Regenprognose direkt unter der Karte:
 
 | Element | Beschreibung |
 |---------|-------------|
-| **Wahrscheinlichkeits-Balken** | Stündlich · blau = Regen · blau-weiß = Schnee · grau = trocken |
+| **Wahrscheinlichkeits-Balken** | Stündlich · blau = Regen · blau-weiß = Schnee |
 | **mm-Beschriftung** | Erwartete Niederschlagsmenge pro Stunde |
 | **Liniengrafik** | mm/h-Verlauf als Kurve |
-| **Zusammenfassung** | „Regen in 2h", „Kein Niederschlag" oder „Regen fällt gerade" |
-| **Detailangaben** | Gesamtmenge · Regenstunden · Intensität |
+| **Zusammenfassung** | „Regen in 2h", „Kein Niederschlag" etc. |
 
 ---
 
-## 🔄 Radar Auto-Refresh (v3.1)
+## 🌐 Verwendete APIs (alle kostenlos, ohne API-Key)
 
-Der Radar aktualisiert sich automatisch:
-
-- **Alle 5 Minuten** werden neue Frames von RainViewer geladen
-- **↻ Button** — sofortiger manueller Refresh
-- **⏭ Button** — springt zum neuesten verfügbaren Frame
-- Der **Zeitbereich** im Header zeigt z.B. „19:30–21:30 · 3 Min. alt"
-
-> **Wichtig — 2h Datenfenster:** RainViewer (kostenlos) liefert immer nur die **letzten ~2 Stunden** Radardaten. Das ist eine API-Einschränkung, kein Bug. Um 21:30 Uhr zeigt der Radar also Daten von ca. 19:30–21:30. Die Daten sind aktuell — der Zeitbereich verschiebt sich laufend mit der Echtzeit.
-
----
-
-## 🌐 Verwendete APIs
-
-| Dienst | Zweck | Kosten |
-|--------|-------|--------|
-| [Open-Meteo](https://open-meteo.com) | Wetterdaten & Vorhersage (Welt) | Kostenlos (CC BY 4.0) |
-| [Open-Meteo MeteoSwiss](https://open-meteo.com/en/docs/meteoswiss-api) | ICON-CH1/CH2 für die Schweiz | Kostenlos (CC BY 4.0) |
-| [RainViewer](https://www.rainviewer.com/api.html) | Radar & Satellitenbild | Kostenlos |
-| [MeteoSwiss / geo.admin.ch](https://wms.geo.admin.ch) | CombiPrecip WMS CH (Radar-Overlay) | Kostenlos (Open Data) |
-| [OpenWeatherMap](https://openweathermap.org) | Temperatur-Heatmap | Kostenlos (free tier) |
-| [Blitzortung.org](https://www.blitzortung.org) | Blitzortung live | Kostenlos (non-commercial) |
-| [Nominatim / OSM](https://nominatim.org) | Geocoding & Ortssuche | Kostenlos |
-| [CartoDB](https://carto.com) | Kartenkacheln (Hell/Dunkel) | Kostenlos |
-
-**Kein API-Key erforderlich** — alle Dienste funktionieren ohne Registrierung.
+| Dienst | Zweck |
+|--------|-------|
+| [Open-Meteo](https://open-meteo.com) | Wetterdaten, Vorhersage, Niederschlagsprognose (inkl. MeteoSwiss ICON-CH) |
+| [RainViewer](https://www.rainviewer.com/api.html) | Regenradar & Satellitenbild |
+| [Nominatim / OSM](https://nominatim.org) | Geocoding & Ortssuche |
+| [CartoDB](https://carto.com) | Kartenkacheln (Hell/Dunkel) |
+| [Leaflet](https://leafletjs.com) | Kartenbibliothek (via CDN) |
 
 ---
 
 ## 🚀 Installation
 
-### GitHub Pages (empfohlen)
-1. `index.html` in ein neues Repository hochladen (oder dieses forken)
+### GitHub Pages
+1. `index.html` in ein neues Repository hochladen
 2. **Settings → Pages → Branch: main → Save**
-3. Nach 1–2 Minuten erreichbar unter:
-   ```
-   https://DEINNAME.github.io/REPONAME
-   ```
+3. Nach 1–2 Minuten erreichbar unter `https://DEINNAME.github.io/REPONAME`
 
-### Als iPhone Home-App speichern
+### Als iPhone Home-App
 1. URL in Safari öffnen
-2. Teilen-Symbol antippen
-3. **„Zum Home-Bildschirm"** wählen
-4. Die App erscheint wie eine native App auf dem Homescreen
+2. Teilen-Symbol → **„Zum Home-Bildschirm"**
 
 ---
 
@@ -139,79 +119,35 @@ Der Radar aktualisiert sich automatisch:
 
 ---
 
-## 🎨 Hell-/Dunkel-Modus
+## ⚠️ Hinweise
 
-Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln wechseln ebenfalls (CartoDB dark/light).
-
----
-
-## 🗺 Standort & Datenschutz
-
-- Standort wird **nur im Browser** verwendet, **nicht gespeichert**
-- Keine persönlichen Daten an Dritte
-- APIs erhalten nur Koordinaten (lat/lon)
-- Hell-/Dunkel-Modus gespeichert via `localStorage`
-
----
-
-## ⚠️ Bekannte Einschränkungen
-
-- **Radar-Forecast:** Animierte Regenfront-Prognose über mehrere Stunden ist in der kostenlosen RainViewer-API nicht enthalten. Ersatz: standortgenaue 24h-Prognose via Open-Meteo.
-- **MeteoSwiss Radar-Animation:** Zeitreihen-API geplant Ende 2026.
-- **Blitzortung CORS:** Direkte API kann im Browser blockiert sein → Fallback auf CAPE-basierte Erkennung.
-- **Standortzugriff:** Einmalig in Safari/Chrome erlauben.
-- **Alpine Täler:** Radarsignale werden von Gipfeln abgeschirmt — MeteoSwiss CombiPrecip korrigiert dies teilweise.
+- **Radar-Datenfenster:** RainViewer zeigt die letzten ~2h plus Kurzprognose. Der Zeitbereich verschiebt sich laufend mit der Echtzeit.
+- **Standortzugriff:** Beim ersten Öffnen in Safari/Chrome einmalig erlauben.
 - **Offline:** Internetverbindung erforderlich.
 
 ---
 
 ## 📋 Changelog
 
-### v3.5
-- Neu: DWD (Deutscher Wetterdienst) als primäre Radarquelle — staatlich, offen, immer aktuell, keine Rate-Limits
-- Fix: RainViewer war unzuverlässig (2025 eingeschränkter Betrieb) und lieferte veraltete Daten
-- RainViewer bleibt als Fallback für den Satelliten-Layer
-- Radar zeigt jetzt immer den aktuellen Moment (Live-WMS, kein Frame-Array)
-- Auto-Refresh alle 5 Min. lädt DWD-Layer neu
-- Versionsnummer erhöht
+### v4.1 — Stabilitäts-Release
+- Robuste Behandlung fehlender Daten: Felder die MeteoSwiss nicht liefert (z.B. Sichtweite, UV) werden ausgeblendet statt „NaN" anzuzeigen
+- Schweiz vereinfacht: nur noch ICON-CH2 (ein Modell, keine Merge-Fehler mehr)
+- Wochenansicht nutzt tatsächliche Anzahl Tage (kein Absturz bei kürzeren Vorhersagen)
+- Sanity-Check: bei fehlenden Kerndaten automatischer Fallback
+- Alle Render-Funktionen gegen null/undefined abgesichert
 
-### v3.4
-- Klarstellung: RainViewer zeigt systembedingt nur die letzten ~2h Radar (API-Limit, kein Bug)
-- Neu: Zeitbereich im Radar-Header sichtbar (z.B. „19:30–21:30 · 3 Min. alt")
-- Neu: Info-Hinweis unter der Karte erklärt das 2h-Fenster
-- Neu: no-cache Meta-Header gegen GitHub Pages / Browser-Caching
-- Versionsnummer erhöht
+### v4.0 — Aufräum-Release
+- Entfernt: Blitze, Temperatur-Heatmap, MeteoSwiss Radar-WMS (alle unzuverlässig)
+- Toten Code, ungenutzte CSS-Regeln und Variablen entfernt
+- Dateigröße von ~71 KB auf ~60 KB reduziert
+- JavaScript-Syntax & alle Element-Referenzen validiert
+- Nur noch 5 stabile Datenquellen, alle ohne API-Key
+- MeteoSwiss ICON-CH Wettermodell bleibt (funktioniert sauber)
 
-### v3.3
-- Fix: Cache-Busting für RainViewer JSON (`cache: no-store` + Timestamp-Parameter)
-- Fix: Browser cached keine alten Radar-Frames mehr
-- Neu: Zeitstempel zeigt Alter des Frames in Minuten (z.B. „18:45 (3 Min. alt)")
-- Neu: Fehlertext im Radar-Header bei Ladefehler verbessert
-- Versionsnummer erhöht
-
-### v3.2
-- Fix: Korrekter Open-Meteo Endpoint (`/v1/forecast` statt `/v1/meteoswiss`)
-- Fix: Korrekter Modellname (`meteoswiss_icon_ch1/ch2` statt `icon_ch1/ch2`)
-- Neu: Automatischer Fallback auf `best_match` wenn MeteoSwiss nicht verfügbar
-- Neu: Fallback-Status sichtbar im Header und Jetzt-Tab (⚠ Fallback)
-- Versionsnummer erhöht
-
-### v3.1
-- Radar Auto-Refresh alle 5 Minuten
-- ⏭ Button: springt zum neuesten Frame
-- ↻ Button: manueller Radar-Refresh
-- Zeitstempel zeigt Stand der Radardaten
-- Alte Radar-Layer werden korrekt entfernt beim Refresh
-- Versionsnummer erhöht
-
-### v3.0
-- MeteoSwiss ICON-CH1/CH2 für Schweizer Standorte
-- Hell-/Dunkel-Modus mit Speicherung
-- Ortssuche weltweit
-- Niederschlagsprognose 24h im Radar-Tab
-- MeteoSwiss CombiPrecip Radar-Overlay (CH)
-- Blitzortung, Satellit, Temperatur-Heatmap
-- Windkompass, Sparklines, alpine Erkennung
+### v3.x
+- Radar Auto-Refresh, Cache-Fixes, DWD-Experiment (verworfen)
+- MeteoSwiss ICON-CH Integration, Hell-/Dunkel-Modus
+- Ortssuche, Niederschlagsprognose, Windkompass, Sparklines
 
 ---
 
@@ -219,6 +155,5 @@ Umschalten per 🌙 / ☀️ Knopf oben rechts. Wird gespeichert. Kartenkacheln 
 
 Wetter-App Code: frei verwendbar für private Zwecke.
 Wetterdaten: Open-Meteo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-MeteoSwiss-Daten: [Open Government Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html) — Quellenangabe: MeteoSwiss
-Radardaten: RainViewer (nur für private/nicht-kommerzielle Nutzung)
-Blitzdaten: Blitzortung.org (nur für private/nicht-kommerzielle Nutzung)
+MeteoSwiss-Daten: Open Government Data — Quellenangabe: MeteoSwiss
+Radardaten: RainViewer (nur private/nicht-kommerzielle Nutzung)
